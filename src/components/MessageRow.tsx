@@ -12,6 +12,8 @@ import { BRAND } from '../brand';
 interface Props {
   message: Message;
   busy: boolean;
+  /** True when the thread holds answers from more than one agent. */
+  showAgent?: boolean;
   onRegenerate: (id: string) => void;
   onEditSubmit: (id: string, text: string) => void;
   onRetry: (id: string) => void;
@@ -54,6 +56,7 @@ function RowAction({
 export const MessageRow = memo(function MessageRow({
   message,
   busy,
+  showAgent,
   onRegenerate,
   onEditSubmit,
   onRetry,
@@ -110,6 +113,11 @@ export const MessageRow = memo(function MessageRow({
           <time dateTime={new Date(message.createdAt).toISOString()} className="meta text-muted">
             {stamp(message.createdAt)}
           </time>
+          {showAgent && message.agentId && (
+            <span className="rounded-pill bg-surface px-2 py-px text-[11px] font-semibold text-muted">
+              {message.agentId}
+            </span>
+          )}
           {(message.revision ?? 1) > 1 && (
             <span className="rounded-pill bg-raised px-1.5 py-px text-[11px] font-bold text-accent-text">
               v{message.revision}

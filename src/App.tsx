@@ -176,6 +176,9 @@ export default function App() {
 
             <ChatHeader
               backend={chat.backend}
+              agents={chat.agents}
+              agentId={chat.agentId}
+              onSelectAgent={chat.selectAgent}
               provider={chat.provider}
               onSelectProvider={chat.setProvider}
               tier={chat.tier}

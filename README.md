@@ -66,6 +66,18 @@ mid-line, mid-event or mid-UTF-8-codepoint, so nothing is assumed about where
 boundaries fall, and one malformed frame is dropped rather than killing the
 connection.
 
+### Agent selection
+
+The picker lists every agent the service registers (`GET /agents`) and switching
+takes effect on the next message. Threads are shared across agents on the server
+— a thread created under one lists under the other — so switching does not
+change the chat list, and one conversation can hold answers from both. When it
+does, each answer is labelled with the agent that produced it.
+
+`VITE_AGENT_ID` only sets the initial selection. If it names an agent the
+service does not have, the client falls back to the first available one, streams
+to *that*, and logs a warning naming the ids the service actually has.
+
 ### Model selection
 
 The service is provider-agnostic — an agent's model is resolved per request from

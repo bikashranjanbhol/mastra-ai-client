@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Monitor, Moon, PanelLeft, PanelRight, Plus, Sun } from 'lucide-react';
 import type { ThemeChoice } from '../types';
 import { BrandMark } from './BrandMark';
-import { listProviders } from '../lib/api/agents';
-import { PROVIDERS, TIERS, type ProviderId, type Tier } from '../lib/api/config';
+import { listProviders, type AgentSummary } from '../lib/api/agents';
+import { API, PROVIDERS, TIERS, type ProviderId, type Tier } from '../lib/api/config';
 import type { BackendState } from '../hooks/useChat';
 
 interface Props {
   backend: BackendState;
+  agents: AgentSummary[];
+  agentId: string;
+  onSelectAgent: (id: string) => void;
   provider?: ProviderId;
   onSelectProvider: (id: ProviderId | undefined) => void;
   tier: Tier;
@@ -50,12 +53,18 @@ const PROVIDER_LABEL: Record<ProviderId, string> = {
  * actually holds a key for, from GET /api/agents/providers.
  */
 function ModelPicker({
+  agents,
+  agentId,
+  onSelectAgent,
   provider,
   onSelectProvider,
   tier,
   onSelectTier,
   disabled,
 }: {
+  agents: AgentSummary[];
+  agentId: string;
+  onSelectAgent: (id: string) => void;
   provider?: ProviderId;
   onSelectProvider: (id: ProviderId | undefined) => void;
   tier: Tier;
@@ -94,6 +103,7 @@ function ModelPicker({
   }, [open]);
 
   const label = provider ? PROVIDER_LABEL[provider] : 'Auto';
+  const agent = agents.find((a) => a.id === agentId);
 
   return (
     <div ref={ref} className="relative">
@@ -107,8 +117,10 @@ function ModelPicker({
         <span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-pill bg-wash">
           <BrandMark size={15} tone="glyph" className="text-accent-text" />
         </span>
-        {label}
-        <span className="font-semibold text-muted">· {TIER_COPY[tier].name}</span>
+        {agent?.name?.trim() || agentId}
+        <span className="font-semibold text-muted">
+          · {label} · {TIER_COPY[tier].name}
+        </span>
         <ChevronDown aria-hidden="true" size={15} strokeWidth={2.25} className="text-muted" />
       </button>
 
@@ -118,7 +130,43 @@ function ModelPicker({
           aria-label="Model selection"
           className="card absolute left-0 top-full z-30 mt-2 w-80 overflow-hidden p-1"
         >
-          <p className="label px-2.5 pb-1 pt-2 text-muted">Tier</p>
+          {agents.length > 1 && (
+            <>
+              <p className="label px-2.5 pb-1 pt-2 text-muted">Agent</p>
+              <ul role="listbox" aria-label="Agent">
+                {agents.map((option) => (
+                  <li key={option.id}>
+                    <button
+                      type="button"
+                      role="option"
+                      aria-selected={option.id === agentId}
+                      onClick={() => onSelectAgent(option.id)}
+                      className="flex w-full items-start gap-2 rounded-ctl px-2.5 py-2 text-left transition-colors hover:bg-hover"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[13.5px] font-bold text-ink">
+                          {option.name?.trim() || option.id}
+                        </span>
+                        {option.description && (
+                          <span className="block meta text-muted">{option.description}</span>
+                        )}
+                      </span>
+                      {option.id === agentId && (
+                        <Check
+                          aria-hidden="true"
+                          size={15}
+                          strokeWidth={2.5}
+                          className="mt-0.5 shrink-0 text-accent"
+                        />
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          <p className="label border-t border-edge px-2.5 pb-1 pt-3 text-muted">Tier</p>
           <ul role="listbox" aria-label="Tier">
             {TIERS.map((option) => (
               <li key={option}>
@@ -209,13 +257,18 @@ function ModelPicker({
   );
 }
 
-/** Connection state, stated plainly rather than hidden behind a spinner. */
+/**
+ * Connection state, stated plainly rather than hidden behind a spinner.
+ *
+ * It reports the link to the service, not the agent — the picker names the
+ * agent, and showing both drifted apart as soon as the agent became selectable.
+ */
 function ConnectionBadge({ backend }: { backend: BackendState }) {
   if (backend.status === 'live') {
     return (
-      <span className="hidden items-center gap-1.5 meta text-muted sm:flex" title={backend.agentId}>
+      <span className="hidden items-center gap-1.5 meta text-muted sm:flex" title={API.baseUrl}>
         <span aria-hidden="true" className="h-1.5 w-1.5 rounded-pill bg-success" />
-        {backend.agentName}
+        Connected
       </span>
     );
   }
@@ -241,6 +294,9 @@ function ConnectionBadge({ backend }: { backend: BackendState }) {
 /** The bar across the top of the main card: model on the left, actions right. */
 export function ChatHeader({
   backend,
+  agents,
+  agentId,
+  onSelectAgent,
   provider,
   onSelectProvider,
   tier,
@@ -272,6 +328,9 @@ export function ChatHeader({
       </button>
 
       <ModelPicker
+        agents={agents}
+        agentId={agentId}
+        onSelectAgent={onSelectAgent}
         provider={provider}
         onSelectProvider={onSelectProvider}
         tier={tier}

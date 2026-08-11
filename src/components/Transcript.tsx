@@ -46,6 +46,11 @@ export function Transcript({
 
   const messages = conversation.messages;
   const count = messages.length;
+  // Threads are shared across agents, so one conversation can hold answers from
+  // several. Label them only when that has actually happened.
+  const mixedAgents =
+    new Set(messages.filter((m) => m.role === 'assistant' && m.agentId).map((m) => m.agentId))
+      .size > 1;
   const virtualized = count > VIRTUALIZE_ABOVE;
 
   const { indices, padTop, padBottom, registerRow, offsetOf } = useVirtualList({
@@ -160,6 +165,7 @@ export function Transcript({
         <MessageRow
           message={message}
           busy={busy}
+          showAgent={mixedAgents}
           onRegenerate={onRegenerate}
           onEditSubmit={onEditSubmit}
           onRetry={onRetry}

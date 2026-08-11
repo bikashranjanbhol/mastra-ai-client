@@ -33,7 +33,8 @@ export interface Message {
   attachments?: Attachment[];
   /** Bumped whenever the turn is regenerated, shown next to the speaker. */
   revision?: number;
-  /** Which model produced this reply, and with which tool enabled. */
+  /** Which agent and model produced this reply, and with which tool enabled. */
+  agentId?: string;
   modelId?: string;
   mode?: ReplyMode;
   /** Tools the agent called while producing this turn. */

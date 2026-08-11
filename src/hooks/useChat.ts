@@ -4,7 +4,13 @@ import { seedConversations, uid } from '../lib/seed';
 import { StreamAbortError, streamAssistantReply } from '../lib/mockModel';
 import { API, type ProviderId, type Tier } from '../lib/api/config';
 import { ApiError } from '../lib/api/http';
-import { abortRun, listAgents, streamAgent, type StreamFrame } from '../lib/api/agents';
+import {
+  abortRun,
+  listAgents,
+  streamAgent,
+  type AgentSummary,
+  type StreamFrame,
+} from '../lib/api/agents';
 import {
   createThread,
   deleteMessages,
@@ -51,6 +57,20 @@ export function useChat() {
   const [faultArmed, setFaultArmed] = useState(false);
   const [provider, setProvider] = useState<ProviderId | undefined>(undefined);
   const [tier, setTier] = useState<Tier>('fast');
+  /**
+   * Which agent answers the next turn. Threads are shared across agents on the
+   * server (verified: a thread created under one agent lists under the other),
+   * so switching does not change the chat list — the same conversation can be
+   * answered by a different agent.
+   */
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
+  const [agentId, setAgentId] = useState<string>(API.agentId);
+  const agentRef = useRef<string>(API.agentId);
+
+  const selectAgent = useCallback((id: string) => {
+    agentRef.current = id;
+    setAgentId(id);
+  }, []);
 
   const abortRef = useRef<AbortController | null>(null);
   const bufferRef = useRef<{ id: string; text: string } | null>(null);
@@ -64,8 +84,7 @@ export function useChat() {
    * — page loads and stray New Chat clicks used to create one every time.
    */
   const threadIds = useRef(new Map<string, string>());
-  /** The agent the service actually registered, which may differ from the configured id. */
-  const agentRef = useRef<string>(API.agentId);
+
   /**
    * In-flight thread creations, keyed by conversation.
    *
@@ -122,7 +141,9 @@ export function useChat() {
               `using "${agent.id}". Available: ${agents.map((a) => a.id).join(', ')}`,
           );
         }
+        setAgents(agents);
         agentRef.current = agent.id;
+        setAgentId(agent.id);
 
         const threads = await listThreads(controller.signal);
         const asConversations: Conversation[] = threads.map((t) => ({
@@ -438,6 +459,7 @@ export function useChat() {
         status: 'streaming',
         revision,
         mode,
+        agentId: agentRef.current,
       };
       patchConversation(convId, (conv) => ({
         ...conv,
@@ -634,6 +656,9 @@ export function useChat() {
     setProvider,
     tier,
     setTier,
+    agents,
+    agentId,
+    selectAgent,
   };
 }
 
