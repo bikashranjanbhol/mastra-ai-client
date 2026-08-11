@@ -1,7 +1,27 @@
 import { ArrowUpRight } from 'lucide-react';
 import { demoUser } from '../brand';
 
-const OPENINGS = [
+/** Questions the service's documentation corpus can actually answer. */
+const LIVE_OPENINGS = [
+  {
+    title: 'Expense limits',
+    prompt: 'What is the meal reimbursement cap, and when do I need receipts?',
+  },
+  {
+    title: 'Incident severity',
+    prompt: 'How do I decide between sev1 and sev2 for a partial outage?',
+  },
+  {
+    title: 'Laptop provisioning',
+    prompt: 'A new starter has no laptop on day one. What is the process, and who owns it?',
+  },
+  {
+    title: 'Credential handling',
+    prompt: 'What are the rules for handling credentials and how long is data retained?',
+  },
+];
+
+const MOCK_OPENINGS = [
   {
     title: 'Compare markdown cadences',
     prompt:
@@ -32,12 +52,22 @@ function greeting(): string {
   return 'Good evening';
 }
 
+interface Props {
+  onPick: (text: string) => void;
+  /** Live suggestions are grounded in the service's corpus; offline ones are not. */
+  live: boolean;
+}
+
 /**
  * Shown for a chat with no messages. The orb and the two-line greeting sit above
  * the composer, which the shell centres in the empty state.
+ *
+ * Openings differ by connection state: suggesting questions the connected agent
+ * cannot answer is a worse first impression than suggesting different ones.
  */
-export function WelcomeHero({ onPick }: { onPick: (text: string) => void }) {
+export function WelcomeHero({ onPick, live }: Props) {
   const firstName = demoUser.name.split(' ')[0];
+  const openings = live ? LIVE_OPENINGS : MOCK_OPENINGS;
 
   return (
     <div className="flex flex-col items-center px-6 text-center">
@@ -50,7 +80,7 @@ export function WelcomeHero({ onPick }: { onPick: (text: string) => void }) {
       </h1>
 
       <ul className="mt-6 flex flex-wrap justify-center gap-2">
-        {OPENINGS.map((opening) => (
+        {openings.map((opening) => (
           <li key={opening.title}>
             <button type="button" onClick={() => onPick(opening.prompt)} className="chip">
               {opening.title}

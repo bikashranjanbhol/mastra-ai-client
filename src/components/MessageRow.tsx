@@ -4,6 +4,7 @@ import type { Message } from '../types';
 import { InlineMarkdown, Markdown } from './Markdown';
 import { SpeakerMark } from './BrandMark';
 import { ThinkingIndicator } from './ThinkingIndicator';
+import { ToolTrace } from './ToolTrace';
 import { useCopy } from '../hooks/useCopy';
 import { fileSize, stamp } from '../lib/format';
 import { BRAND } from '../brand';
@@ -119,6 +120,11 @@ export const MessageRow = memo(function MessageRow({
               Stopped
             </span>
           )}
+          {message.usage?.totalTokens ? (
+            <span className="meta text-muted" title="Reported by the service on finish">
+              {message.usage.totalTokens.toLocaleString()} tok
+            </span>
+          ) : null}
 
           <div className="flex-1" />
 
@@ -213,7 +219,20 @@ export const MessageRow = memo(function MessageRow({
           </>
         ) : (
           <div className="max-w-[82ch]">
-            {streaming && !message.content ? (
+            {message.tools?.length ? <ToolTrace runs={message.tools} /> : null}
+
+            {message.reasoning ? (
+              <details className="mb-2.5 rounded-ctl border border-edge bg-surface px-3 py-2">
+                <summary className="cursor-pointer text-[13px] font-semibold text-muted">
+                  Reasoning
+                </summary>
+                <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-muted">
+                  {message.reasoning}
+                </p>
+              </details>
+            ) : null}
+
+            {streaming && !message.content && !message.tools?.length ? (
               <ThinkingIndicator />
             ) : (
               <Markdown source={message.content} streaming={streaming} />

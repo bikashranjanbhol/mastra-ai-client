@@ -154,9 +154,32 @@ export default function App() {
       <main className="card flex min-w-0 flex-1 flex-col overflow-hidden">
         {active && (
           <>
+            {chat.backend.status === 'offline' && (
+              <div
+                role="status"
+                className="mx-4 mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-ctl border border-danger bg-raised px-3 py-2 md:mx-5"
+              >
+                <span className="label text-danger">Backend offline</span>
+                <span className="min-w-0 flex-1 text-[13px] text-ink">
+                  {chat.backend.reason}. Replies below come from the built-in simulator, and
+                  nothing is saved.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="btn btn-quiet btn-sm"
+                >
+                  Retry connection
+                </button>
+              </div>
+            )}
+
             <ChatHeader
-              modelId={chat.modelId}
-              onSelectModel={chat.setModelId}
+              backend={chat.backend}
+              provider={chat.provider}
+              onSelectProvider={chat.setProvider}
+              tier={chat.tier}
+              onSelectTier={chat.setTier}
               onNewChat={startNew}
               onToggleSidebar={toggleIndex}
               sidebarOpen={isDesktop ? railOpen : drawerOpen}
@@ -173,6 +196,7 @@ export default function App() {
               <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-6">
                 <div className="w-full max-w-[720px]">
                   <WelcomeHero
+                    live={chat.backend.status === 'live'}
                     onPick={(text) => chat.send(text, [], 'standard')}
                   />
                   <div className="mt-9">

@@ -2,11 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Monitor, Moon, PanelLeft, PanelRight, Plus, Sun } from 'lucide-react';
 import type { ThemeChoice } from '../types';
 import { BrandMark } from './BrandMark';
-import { MODELS } from '../brand';
+import { listProviders } from '../lib/api/agents';
+import { PROVIDERS, TIERS, type ProviderId, type Tier } from '../lib/api/config';
+import type { BackendState } from '../hooks/useChat';
 
 interface Props {
-  modelId: string;
-  onSelectModel: (id: string) => void;
+  backend: BackendState;
+  provider?: ProviderId;
+  onSelectProvider: (id: ProviderId | undefined) => void;
+  tier: Tier;
+  onSelectTier: (tier: Tier) => void;
   onNewChat: () => void;
   onToggleSidebar: () => void;
   sidebarOpen: boolean;
@@ -21,11 +26,56 @@ interface Props {
 const THEME_ICON = { system: Monitor, light: Sun, dark: Moon } as const;
 const THEME_LABEL = { system: 'following system', light: 'light', dark: 'dark' } as const;
 
-/** Model picker — a listbox in a popover, closed on Escape or outside click. */
-function ModelPicker({ modelId, onSelect }: { modelId: string; onSelect: (id: string) => void }) {
+const TIER_COPY: Record<Tier, { name: string; blurb: string }> = {
+  fast: { name: 'Fast', blurb: 'Lowest latency, everyday questions' },
+  flagship: { name: 'Flagship', blurb: 'The strongest model each provider ships' },
+  reasoning: { name: 'Reasoning', blurb: 'Deliberate answers; falls back where unavailable' },
+};
+
+const PROVIDER_LABEL: Record<ProviderId, string> = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  google: 'Google Gemini',
+  groq: 'Groq',
+  mistral: 'Mistral',
+  openrouter: 'OpenRouter',
+};
+
+/**
+ * Model picker.
+ *
+ * The service is provider-agnostic: an agent's model is resolved per request
+ * from `provider` and `tier` on the request context. So this picks those two,
+ * not a hardcoded model name — and it marks which providers the server
+ * actually holds a key for, from GET /api/agents/providers.
+ */
+function ModelPicker({
+  provider,
+  onSelectProvider,
+  tier,
+  onSelectTier,
+  disabled,
+}: {
+  provider?: ProviderId;
+  onSelectProvider: (id: ProviderId | undefined) => void;
+  tier: Tier;
+  onSelectTier: (tier: Tier) => void;
+  disabled: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  const [connected, setConnected] = useState<Set<string> | null>(null);
   const ref = useRef<HTMLDivElement>(null);
-  const current = MODELS.find((m) => m.id === modelId) ?? MODELS[0];
+
+  useEffect(() => {
+    if (!open || connected || disabled) return;
+    const controller = new AbortController();
+    listProviders(controller.signal)
+      .then((list) =>
+        setConnected(new Set(list.filter((p) => p.connected).map((p) => p.id))),
+      )
+      .catch(() => setConnected(new Set()));
+    return () => controller.abort();
+  }, [open, connected, disabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -43,47 +93,49 @@ function ModelPicker({ modelId, onSelect }: { modelId: string; onSelect: (id: st
     };
   }, [open]);
 
+  const label = provider ? PROVIDER_LABEL[provider] : 'Auto';
+
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
+        aria-haspopup="dialog"
         aria-expanded={open}
         className="flex items-center gap-2 rounded-pill border border-edge bg-raised py-1.5 pl-1.5 pr-3 text-[14px] font-bold text-ink shadow-raised transition-colors hover:bg-hover"
       >
         <span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-pill bg-wash">
           <BrandMark size={15} tone="glyph" className="text-accent-text" />
         </span>
-        {current.name}
+        {label}
+        <span className="font-semibold text-muted">· {TIER_COPY[tier].name}</span>
         <ChevronDown aria-hidden="true" size={15} strokeWidth={2.25} className="text-muted" />
       </button>
 
       {open && (
-        <ul
-          role="listbox"
-          aria-label="Model"
-          className="card absolute left-0 top-full z-30 mt-2 w-72 overflow-hidden p-1"
+        <div
+          role="dialog"
+          aria-label="Model selection"
+          className="card absolute left-0 top-full z-30 mt-2 w-80 overflow-hidden p-1"
         >
-          {MODELS.map((model) => {
-            const selected = model.id === modelId;
-            return (
-              <li key={model.id}>
+          <p className="label px-2.5 pb-1 pt-2 text-muted">Tier</p>
+          <ul role="listbox" aria-label="Tier">
+            {TIERS.map((option) => (
+              <li key={option}>
                 <button
                   type="button"
                   role="option"
-                  aria-selected={selected}
-                  onClick={() => {
-                    onSelect(model.id);
-                    setOpen(false);
-                  }}
+                  aria-selected={option === tier}
+                  onClick={() => onSelectTier(option)}
                   className="flex w-full items-start gap-2 rounded-ctl px-2.5 py-2 text-left transition-colors hover:bg-hover"
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[13.5px] font-bold text-ink">{model.name}</span>
-                    <span className="block meta text-muted">{model.blurb}</span>
+                    <span className="block text-[13.5px] font-bold text-ink">
+                      {TIER_COPY[option].name}
+                    </span>
+                    <span className="block meta text-muted">{TIER_COPY[option].blurb}</span>
                   </span>
-                  {selected && (
+                  {option === tier && (
                     <Check
                       aria-hidden="true"
                       size={15}
@@ -93,18 +145,106 @@ function ModelPicker({ modelId, onSelect }: { modelId: string; onSelect: (id: st
                   )}
                 </button>
               </li>
-            );
-          })}
-        </ul>
+            ))}
+          </ul>
+
+          <p className="label border-t border-edge px-2.5 pb-1 pt-3 text-muted">Provider</p>
+          <ul role="listbox" aria-label="Provider">
+            <li>
+              <button
+                type="button"
+                role="option"
+                aria-selected={provider === undefined}
+                onClick={() => onSelectProvider(undefined)}
+                className="flex w-full items-center gap-2 rounded-ctl px-2.5 py-2 text-left transition-colors hover:bg-hover"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13.5px] font-bold text-ink">Auto</span>
+                  <span className="block meta text-muted">
+                    Server&rsquo;s fallback chain, in order
+                  </span>
+                </span>
+                {provider === undefined && (
+                  <Check aria-hidden="true" size={15} strokeWidth={2.5} className="text-accent" />
+                )}
+              </button>
+            </li>
+            {PROVIDERS.map((id) => {
+              const isConnected = connected?.has(id);
+              return (
+                <li key={id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={provider === id}
+                    onClick={() => onSelectProvider(id)}
+                    className="flex w-full items-center gap-2 rounded-ctl px-2.5 py-1.5 text-left transition-colors hover:bg-hover"
+                  >
+                    <span className="min-w-0 flex-1 text-[13.5px] text-ink">
+                      {PROVIDER_LABEL[id]}
+                    </span>
+                    {connected && (
+                      <span
+                        className={`meta ${isConnected ? 'text-success' : 'text-muted'}`}
+                        title={
+                          isConnected
+                            ? 'The server holds a key for this provider'
+                            : 'No API key configured on the server'
+                        }
+                      >
+                        {isConnected ? 'key set' : 'no key'}
+                      </span>
+                    )}
+                    {provider === id && (
+                      <Check aria-hidden="true" size={15} strokeWidth={2.5} className="text-accent" />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
     </div>
   );
 }
 
+/** Connection state, stated plainly rather than hidden behind a spinner. */
+function ConnectionBadge({ backend }: { backend: BackendState }) {
+  if (backend.status === 'live') {
+    return (
+      <span className="hidden items-center gap-1.5 meta text-muted sm:flex" title={backend.agentId}>
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-pill bg-success" />
+        {backend.agentName}
+      </span>
+    );
+  }
+  if (backend.status === 'connecting') {
+    return (
+      <span className="hidden items-center gap-1.5 meta text-muted sm:flex">
+        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-pill bg-edge-strong" />
+        Connecting…
+      </span>
+    );
+  }
+  return (
+    <span
+      className="hidden items-center gap-1.5 meta text-danger sm:flex"
+      title={backend.reason}
+    >
+      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-pill bg-danger" />
+      Offline · simulated
+    </span>
+  );
+}
+
 /** The bar across the top of the main card: model on the left, actions right. */
 export function ChatHeader({
-  modelId,
-  onSelectModel,
+  backend,
+  provider,
+  onSelectProvider,
+  tier,
+  onSelectTier,
   onNewChat,
   onToggleSidebar,
   sidebarOpen,
@@ -131,7 +271,15 @@ export function ChatHeader({
         <span className="sr-only-text">{sidebarOpen ? 'Hide chat list' : 'Show chat list'}</span>
       </button>
 
-      <ModelPicker modelId={modelId} onSelect={onSelectModel} />
+      <ModelPicker
+        provider={provider}
+        onSelectProvider={onSelectProvider}
+        tier={tier}
+        onSelectTier={onSelectTier}
+        disabled={backend.status !== 'live'}
+      />
+
+      <ConnectionBadge backend={backend} />
 
       <div className="flex-1" />
 

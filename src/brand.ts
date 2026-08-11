@@ -39,19 +39,3 @@ export const demoUser = {
   email: 'jordan.avery@example.com',
   role: 'Merchandising · Region 14',
 } as const;
-
-export interface ModelOption {
-  id: string;
-  name: string;
-  blurb: string;
-}
-
-/**
- * Selectable models. The mock backend ignores which one is chosen beyond
- * stamping it on the reply; a real client would pass `id` through to the API.
- */
-export const MODELS: ModelOption[] = [
-  { id: 'assistant-pro', name: 'Assistant Pro', blurb: 'Best for analysis and long documents' },
-  { id: 'assistant-fast', name: 'Assistant Fast', blurb: 'Quicker replies, shorter answers' },
-  { id: 'assistant-code', name: 'Assistant Code', blurb: 'Tuned for queries and integrations' },
-];

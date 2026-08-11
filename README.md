@@ -11,11 +11,92 @@ npm run build
 npm run typecheck
 ```
 
-No backend required. Responses come from a simulated streaming model
-(`src/lib/mockModel.ts`); state lives in memory only. All figures, store numbers
-and items in the sample conversations are invented for the demo.
+Talks to **mastra-ai-service** over its HTTP API, and falls back to a built-in
+simulator when that service is unreachable — saying so in the header rather than
+failing silently.
+
+```bash
+cp .env.example .env       # defaults point at http://localhost:4111/api
+npm run dev
+```
 
 ---
+
+## Backend integration
+
+The client is wired to [mastra-ai-service](https://github.com/bikashranjanbhol/mastra-ai-service)
+(Mastra v1). Every route below was read from the running server's own OpenAPI
+document (`GET /api/openapi.json`) and exercised against a live instance — none
+of it is transcribed from documentation.
+
+| What the UI does | Endpoint |
+| --- | --- |
+| Connect, name the agent | `GET /agents` |
+| Provider key status in the picker | `GET /agents/providers` |
+| Send a message, stream the reply | `POST /agents/{agentId}/stream` |
+| Stop generating | `POST /agents/{agentId}/threads/abort` |
+| Chat list | `GET /memory/threads` |
+| New chat (on first send) | `POST /memory/threads` |
+| Rename | `PATCH /memory/threads/{threadId}` |
+| Delete | `DELETE /memory/threads/{threadId}` |
+| Load a chat | `GET /memory/threads/{threadId}/messages` |
+| Regenerate / edit-and-resend | `POST /memory/messages/delete` |
+
+Two identifier conventions differ on the server and are easy to get wrong:
+**agents are addressed by their `id`** (`docs-agent`), while **workflows are
+addressed by their registry key** (`triageAndFileWorkflow`, not `triage-and-file`).
+
+### The stream
+
+`POST /agents/{id}/stream` returns `text/event-stream`: one JSON object per
+`data:` line, terminated by `data: [DONE]`. The frames the client acts on:
+
+```
+start · step-start
+text-start · text-delta · text-end                 → the answer
+reasoning-start · reasoning-delta · reasoning-end   → the Reasoning disclosure
+tool-call-input-streaming-start · tool-call-delta
+tool-call · tool-result · tool-error                → the tool trace
+step-finish · finish                                → token usage, model id
+error · abort
+```
+
+`src/lib/api/sse.ts` decodes this incrementally: a network chunk can end
+mid-line, mid-event or mid-UTF-8-codepoint, so nothing is assumed about where
+boundaries fall, and one malformed frame is dropped rather than killing the
+connection.
+
+### Model selection
+
+The service is provider-agnostic — an agent's model is resolved per request from
+`provider` and `tier` on Mastra's request context. So the picker sets those two
+rather than a model name, and marks which providers the server actually holds a
+key for. `fallback: 'off'` pins a single provider when a failure needs to be
+attributable.
+
+### Threads are created lazily
+
+A new chat is local until its first message; only then is a thread created. An
+earlier version created one on every page load, which left empty "New chat"
+threads in the database that then outranked real conversations by `updatedAt`.
+
+### What the composer tools map to
+
+- **Reasoning** requests the service's `reasoning` tier, which falls back to
+  flagship where a provider has no distinct reasoning model.
+- **Deep Research** is a prompt-level instruction to search exhaustively and
+  cite passage ids. The service has no research mode, so this is honest about
+  being prompting rather than a separate capability.
+
+### Known limits
+
+- `GET /memory/search` exists and is called, but the service's agents are not
+  configured with semantic recall, so it returns nothing. Sidebar search filters
+  loaded threads instead.
+- Attachments are collected and displayed but not uploaded; the stream call
+  sends text only.
+- `resourceId` is a fixed demo user (`VITE_RESOURCE_ID`). Every browser shares
+  one history until it is wired to a real session.
 
 ## Before this ships — brand kit items not included here
 
@@ -121,14 +202,20 @@ src/
   lib/markdown.ts     block + inline parser, tolerant of half-written input
   lib/highlight.ts    tokenizer-based highlighter (ts/js, python, sql, bash, css,
                       html, rust, go, json)
-  lib/mockModel.ts    simulated streaming, jittered cadence, injectable faults
-  lib/seed.ts         three sample conversations
+  lib/api/config.ts   base URL, agent id, resource id, request-context keys
+  lib/api/http.ts     fetch wrapper, ApiError, timeouts
+  lib/api/sse.ts      incremental server-sent-event decoder
+  lib/api/agents.ts   agent list, providers, stream, abort
+  lib/api/memory.ts   threads, messages, and the stored-format mapping
+  lib/mockModel.ts    offline simulator, jittered cadence, injectable faults
+  lib/seed.ts         sample conversations for the offline path
   hooks/useChat.ts    conversation state machine; tokens buffered and flushed once
                       per animation frame rather than once per token
   hooks/useVirtualList.ts   windowed rendering with ResizeObserver-measured heights
   hooks/useTheme.ts   system / light / dark, resolved onto <html data-theme>
   components/BrandMark.tsx     product mark, speaker marks, user avatar
-  components/ChatHeader.tsx    model picker, theme, panel toggles, New Chat
+  components/ChatHeader.tsx    provider/tier picker, connection badge, New Chat
+  components/ToolTrace.tsx     the agent's tool calls, expandable
   components/WelcomeHero.tsx   orb, greeting, opening prompts
   components/ContextPanel.tsx  details, question jump-links, files
   components/         shell, transcript, composer, markdown renderer
@@ -158,6 +245,11 @@ keeps rendering as it arrives.
   hundreds of interruptions per reply.
 - **Simulate dropped connection** (sidebar footer) arms a one-shot mid-stream failure
   so the error and retry path can be demonstrated.
+- **Stopping** aborts the fetch *and* calls the service's abort endpoint. Aborting
+  only locally leaves the model call running and billing.
+- **Tool calls are shown**, not hidden: the docs agent must search before it
+  answers, so the retrieval step is part of the answer's provenance and can be
+  expanded to see exactly which passages came back.
 
 ## Keyboard
 
