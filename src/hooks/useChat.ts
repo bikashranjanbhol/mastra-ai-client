@@ -64,6 +64,8 @@ export function useChat() {
    * — page loads and stray New Chat clicks used to create one every time.
    */
   const threadIds = useRef(new Map<string, string>());
+  /** The agent the service actually registered, which may differ from the configured id. */
+  const agentRef = useRef<string>(API.agentId);
   /**
    * In-flight thread creations, keyed by conversation.
    *
@@ -112,6 +114,15 @@ export function useChat() {
         const agents = await listAgents(controller.signal);
         const agent = agents.find((a) => a.id === API.agentId) ?? agents[0];
         if (!agent) throw new ApiError(0, 'The service reported no agents');
+        if (agent.id !== API.agentId) {
+          // Configured id is not registered. Use what the service does have and
+          // say so, rather than showing a healthy badge and failing every send.
+          console.warn(
+            `[assistant] VITE_AGENT_ID="${API.agentId}" is not registered; ` +
+              `using "${agent.id}". Available: ${agents.map((a) => a.id).join(', ')}`,
+          );
+        }
+        agentRef.current = agent.id;
 
         const threads = await listThreads(controller.signal);
         const asConversations: Conversation[] = threads.map((t) => ({
@@ -123,7 +134,11 @@ export function useChat() {
         }));
 
         if (controller.signal.aborted) return;
-        setBackend({ status: 'live', agentId: agent.id, agentName: agent.name });
+        setBackend({
+          status: 'live',
+          agentId: agent.id,
+          agentName: agent.name?.trim() || agent.id,
+        });
 
         for (const conv of asConversations) threadIds.current.set(conv.id, conv.id);
 
@@ -344,6 +359,7 @@ export function useChat() {
         if (live && !injectFailure) {
           const threadId = await resolveThread(convId, titleFrom(prompt));
           for await (const frame of streamAgent({
+            agentId: agentRef.current,
             threadId,
             message,
             provider,
@@ -488,7 +504,7 @@ export function useChat() {
   const stop = useCallback(() => {
     abortRef.current?.abort();
     const threadId = activeId ? threadIds.current.get(activeId) : undefined;
-    if (live && threadId) void abortRun(threadId);
+    if (live && threadId) void abortRun(threadId, agentRef.current);
   }, [activeId, live]);
 
   /** Discards a turn on the server too — the transcript lives there, not here. */
