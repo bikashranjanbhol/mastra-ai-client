@@ -88,6 +88,27 @@ threads in the database that then outranked real conversations by `updatedAt`.
   cite passage ids. The service has no research mode, so this is honest about
   being prompting rather than a separate capability.
 
+### Verified against a live model
+
+The integration was run end to end against Google Gemini through the service:
+multi-step tool calling (two `search_docs` calls followed by `create_ticket`),
+citations, the reasoning tier, regenerate, stop, thread persistence across a
+reload, rename and delete. Screenshots of that run are in the branch history.
+
+> **Service-side fix needed.** The service pins retired Gemini model ids, so a
+> valid Google key still fails with *"This model models/gemini-2.5-flash is no
+> longer available to new users"*. In `mastra-ai-service`, at
+> `src/mastra/config/models.ts`:
+>
+> ```diff
+> -    models: { fast: 'gemini-2.5-flash', flagship: 'gemini-2.5-pro' },
+> +    models: { fast: 'gemini-flash-latest', flagship: 'gemini-3.5-flash' },
+> ```
+>
+> Both replacements were confirmed to serve `generateContent` on a free-tier
+> key. `gemini-pro-latest` returns 429 on the free tier, so it is a poor
+> flagship default.
+
 ### Known limits
 
 - `GET /memory/search` exists and is called, but the service's agents are not
