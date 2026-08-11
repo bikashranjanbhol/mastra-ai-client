@@ -14,6 +14,8 @@ export interface VirtualWindow {
   padTop: number;
   padBottom: number;
   registerRow: (index: number) => (el: HTMLElement | null) => void;
+  /** Scroll offset of a row, for jumping to a message that is not mounted. */
+  offsetOf: (index: number) => number;
 }
 
 /**
@@ -110,16 +112,24 @@ export function useVirtualList({
   }, [scrollRef, enabled]);
 
   return useMemo<VirtualWindow>(() => {
+    const heightAt = (i: number) => heights.current[i] || estimate;
+
+    /** Sum of measured heights before `index`; used by both branches below. */
+    const offsetOf = (index: number) => {
+      let total = 0;
+      for (let i = 0; i < Math.min(index, count); i += 1) total += heightAt(i);
+      return total;
+    };
+
     if (!enabled) {
       return {
         indices: Array.from({ length: count }, (_, i) => i),
         padTop: 0,
         padBottom: 0,
         registerRow,
+        offsetOf,
       };
     }
-
-    const heightAt = (i: number) => heights.current[i] || estimate;
 
     const offsets: number[] = new Array(count + 1);
     offsets[0] = 0;
@@ -154,6 +164,7 @@ export function useVirtualList({
       padTop: offsets[start],
       padBottom: Math.max(0, total - offsets[end + 1]),
       registerRow,
+      offsetOf,
     };
     // Height mutations live in a ref; `version` is the signal that re-runs this
     // memo when the observer records a new measurement.

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react';
 import { ArrowDown } from 'lucide-react';
 import type { Conversation } from '../types';
 import { MessageRow } from './MessageRow';
@@ -11,6 +19,10 @@ const VIRTUALIZE_ABOVE = 100;
 /** Distance from the bottom, in px, still counted as "following along". */
 const PIN_SLACK = 96;
 
+export interface TranscriptHandle {
+  jumpTo: (messageId: string) => void;
+}
+
 interface Props {
   conversation: Conversation;
   busy: boolean;
@@ -18,6 +30,7 @@ interface Props {
   onRegenerate: (id: string) => void;
   onEditSubmit: (id: string, text: string) => void;
   onRetry: (id: string) => void;
+  handleRef?: RefObject<TranscriptHandle | null>;
 }
 
 export function Transcript({
@@ -27,20 +40,22 @@ export function Transcript({
   onRegenerate,
   onEditSubmit,
   onRetry,
+  handleRef,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(true);
   const pinnedRef = useRef(true);
+  const [flashId, setFlashId] = useState<string | null>(null);
 
   const messages = conversation.messages;
   const count = messages.length;
   const virtualized = count > VIRTUALIZE_ABOVE;
 
-  const { indices, padTop, padBottom, registerRow } = useVirtualList({
+  const { indices, padTop, padBottom, registerRow, offsetOf } = useVirtualList({
     scrollRef,
     count,
     enabled: virtualized,
-    estimate: 260,
+    estimate: 190,
   });
 
   const setPin = useCallback((next: boolean) => {
@@ -62,6 +77,45 @@ export function Transcript({
     pinnedRef.current = true;
     setPinned(true);
   }, []);
+
+  /**
+   * Jump to a message by id, for the context panel's question links.
+   *
+   * When the list is windowed the target row usually is not mounted, so the
+   * scroll goes to its computed offset first; the row mounts on the next frame
+   * and is then centred exactly.
+   */
+  useImperativeHandle(
+    handleRef,
+    () => ({
+      jumpTo: (messageId: string) => {
+        const node = scrollRef.current;
+        if (!node) return;
+        const index = messages.findIndex((m) => m.id === messageId);
+        if (index === -1) return;
+
+        pinnedRef.current = false;
+        setPinned(false);
+        setFlashId(messageId);
+
+        if (virtualized) node.scrollTop = Math.max(0, offsetOf(index) - 24);
+
+        requestAnimationFrame(() => {
+          document
+            .getElementById(`msg-${messageId}`)
+            ?.scrollIntoView({ block: 'start', behavior: 'auto' });
+        });
+      },
+    }),
+    [messages, offsetOf, virtualized],
+  );
+
+  // Clear the jump highlight after it has been seen.
+  useEffect(() => {
+    if (!flashId) return;
+    const id = window.setTimeout(() => setFlashId(null), 1600);
+    return () => window.clearTimeout(id);
+  }, [flashId]);
 
   // Jump to the foot of the transcript when the conversation changes.
   useLayoutEffect(() => {
@@ -88,7 +142,9 @@ export function Transcript({
     if (!last) return;
     if (last.status === 'streaming') setAnnouncement('Response in progress.');
     else if (last.status === 'complete' && last.role === 'assistant')
-      setAnnouncement(`Response complete, ${plural(last.content.trim().split(/\s+/).length, 'word')}.`);
+      setAnnouncement(
+        `Response complete, ${plural(last.content.trim().split(/\s+/).length, 'word')}.`,
+      );
     else if (last.status === 'stopped') setAnnouncement('Generation stopped.');
     else if (last.status === 'error') setAnnouncement('The response failed. Retry is available.');
   }, [last, last?.status]);
@@ -97,7 +153,13 @@ export function Transcript({
     const message = messages[index];
     if (!message) return null;
     return (
-      <div key={message.id} ref={virtualized ? registerRow(index) : undefined}>
+      <div
+        key={message.id}
+        ref={virtualized ? registerRow(index) : undefined}
+        className={
+          flashId === message.id ? 'ring-2 ring-inset ring-accent transition-shadow' : undefined
+        }
+      >
         <MessageRow
           message={message}
           busy={busy}
@@ -119,7 +181,7 @@ export function Transcript({
         aria-live="polite"
         aria-relevant="additions"
         aria-label={`Transcript of ${conversation.title}`}
-        className="h-full overflow-y-auto overflow-x-hidden focus-visible:outline-offset-[-2px]"
+        className="h-full overflow-y-auto overflow-x-hidden bg-raised focus-visible:outline-offset-[-2px]"
       >
         {count === 0 ? (
           <EmptyState onPick={onSend} />
@@ -134,12 +196,10 @@ export function Transcript({
         )}
 
         {count > 0 && (
-          <div className="border-t border-edge px-5 py-6 min-[900px]:px-8">
-            <p className="label text-muted">
-              End of conversation · {plural(count, 'message')}
-              {virtualized && ' · windowed'}
-            </p>
-          </div>
+          <p className="px-4 py-3 meta text-muted md:px-6">
+            End of conversation · {plural(count, 'message')}
+            {virtualized && ' · windowed'}
+          </p>
         )}
       </div>
 
@@ -153,7 +213,7 @@ export function Transcript({
         <button
           type="button"
           onClick={() => scrollToLatest()}
-          className="btn absolute bottom-4 right-5 border border-edge bg-raised text-ink shadow-pop hover:bg-hover min-[900px]:right-8"
+          className="btn btn-sm absolute bottom-3 right-4 border border-edge bg-raised text-ink shadow-pop hover:bg-hover md:right-6"
         >
           <ArrowDown aria-hidden="true" size={14} strokeWidth={2.25} className="text-accent" />
           Jump to latest

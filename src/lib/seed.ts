@@ -278,9 +278,14 @@ that as a formula is worse than just writing the three numbers down.`,
 
 /* --------------------------- 3. long conversation, to exercise virtualization */
 
-const NOTES: Array<[string, string]> = [
+/**
+ * Question/answer pairs for the long conversation. Each takes the store number
+ * so the substitution cannot leak into a figure where a store number makes no
+ * sense — an earlier version produced "the 4562-week trailing average".
+ */
+const NOTES: Array<[(store: number) => string, string]> = [
   [
-    'Store {n}: modular reset is showing 40% compliance. Real or a data problem?',
+    (store) => `Store ${store}: modular reset is showing 40% compliance. Real or a data problem?`,
     `Data problem first, on this evidence.
 
 40% is low enough to be a measurement artefact rather than execution. Check the audit
@@ -291,7 +296,7 @@ If the timestamps do line up, the usual cause at this scale is a fixture mismatc
 the planogram assumes a four-foot section and the store has a three-foot run.`,
   ],
   [
-    'Item {n} keeps reading out-of-stock but the shelf is full. Where do I look?',
+    (store) => `Item ${store} keeps reading out-of-stock but the shelf is full. Where do I look?`,
     `Phantom inventory, and it is nearly always one of three things:
 
 1. **A receiving error** — the case was scanned into the wrong item number, so
@@ -305,17 +310,17 @@ Start with the receiving log for the last two deliveries. That is where the answ
 usually is.`,
   ],
   [
-    'Is the {n}-week trailing average the right window for this category?',
+    () => `Is the 12-week trailing average the right window for this category?`,
     `For this one, probably too long.
 
 A trailing window has to be short enough to track real demand shifts and long enough
-to smooth noise. In a category with promotional swings this size, a window that long
-carries promo weeks into the baseline for over a month after the event ends.
+to smooth noise. In a category with promotional swings this size, twelve weeks carries
+promo weeks into the baseline for over a month after the event ends.
 
 Try halving it and adding a promo flag so the lift is modelled rather than averaged in.`,
   ],
   [
-    'Should section {n} keep its endcap through the transition?',
+    (store) => `Should store ${store} keep its endcap for this category through the transition?`,
     `Keep it, but shorten the tail.
 
 The endcap is still earning its space on units, and giving it up early means the
@@ -324,7 +329,7 @@ of overlap is the usual compromise: incoming item on the endcap, outgoing item b
 its in-line position rather than out of the store entirely.`,
   ],
   [
-    'Cut or keep the secondary display for item {n}?',
+    (store) => `Cut or keep the secondary display for item ${store}?`,
     `Cut it.
 
 Two placements for one item split the demand signal without adding much lift — the
@@ -332,7 +337,7 @@ data shows the secondary taking sales from the in-line position rather than crea
 new ones. The space is worth more given to an item that has no placement at all.`,
   ],
   [
-    'Availability dipped in week {n} but sales held. How is that possible?',
+    (store) => `Availability at store ${store} dipped last week but sales held. How is that possible?`,
     `Substitution, most likely — and it means the dip cost less than the report implies.
 
 When an item goes out and the shopper takes the next size or the private-label
@@ -387,13 +392,10 @@ Send the stores as you get to them and I'll work case by case.`,
 
   // ~62 exchanges → ~126 messages total, comfortably past the virtualization threshold.
   for (let n = 1; n <= 62; n += 1) {
-    const [q, a] = NOTES[n % NOTES.length];
-    const prompt = q.replace(/\{n\}/g, String(4500 + n));
-    messages.push(turn('user', prompt, t));
+    const [question, answer] = NOTES[n % NOTES.length];
+    messages.push(turn('user', question(4500 + n), t));
     t += 90_000 + (n % 5) * 45_000;
-    messages.push(
-      turn('assistant', a.replace(/\{n\}/g, String(4500 + n)), t, n % 9 === 0 ? { revision: 2 } : {}),
-    );
+    messages.push(turn('assistant', answer, t, n % 9 === 0 ? { revision: 2 } : {}));
     t += 3 * MINUTE + (n % 7) * MINUTE;
   }
 

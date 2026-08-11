@@ -1,14 +1,13 @@
 import { useEffect, useImperativeHandle, useRef, useState, type RefObject } from 'react';
 import { CornerDownLeft, Paperclip, Square, X } from 'lucide-react';
 import type { Attachment } from '../types';
-import { SpeakerMark } from './BrandMark';
 import { estimateTokens } from '../lib/markdown';
 import { fileSize } from '../lib/format';
 import { uid } from '../lib/seed';
 import { BRAND } from '../brand';
 
 const TOKEN_BUDGET = 8000;
-const MAX_HEIGHT = 320;
+const MAX_HEIGHT = 220;
 
 export interface ComposerHandle {
   focus: () => void;
@@ -30,9 +29,9 @@ const kindOf = (name: string): Attachment['kind'] => {
 };
 
 /**
- * The composer is docked flush to the foot of the sheet — full bleed, separated
- * by a single rule. It repeats the transcript's rail so a draft reads as the
- * next message rather than as a control panel.
+ * Docked to the foot of the transcript, full width, with the controls on one
+ * line under the input. No side rail — the space it used to occupy is the
+ * transcript's now.
  */
 export function Composer({ busy, onSend, onStop, handleRef }: Props) {
   const [text, setText] = useState('');
@@ -85,26 +84,9 @@ export function Composer({ busy, onSend, onStop, handleRef }: Props) {
         e.preventDefault();
         submit();
       }}
-      className="grid shrink-0 grid-cols-1 gap-2 border-t border-edge-strong bg-surface px-5 py-4 min-[900px]:grid-cols-[8.25rem_minmax(0,1fr)] min-[900px]:gap-6 min-[900px]:px-8"
+      className="shrink-0 border-t border-edge bg-surface px-4 py-3 md:px-6"
     >
-      <div className="flex flex-row items-center gap-3 min-[900px]:flex-col min-[900px]:items-start min-[900px]:gap-1.5 min-[900px]:pt-1">
-        <h2 className="flex items-center gap-2">
-          <SpeakerMark role="user" className="text-accent" />
-          <span className="label text-accent-text">Draft</span>
-        </h2>
-        <span
-          className={`meta ${overBudget ? 'text-danger' : 'text-muted'}`}
-        >
-          {text.length} ch
-        </span>
-        <span
-          className={`meta ${overBudget ? 'text-danger' : 'text-muted'}`}
-        >
-          ~{tokens} / {TOKEN_BUDGET.toLocaleString()} tok
-        </span>
-      </div>
-
-      <div className="min-w-0 border-l-2 border-accent pl-4">
+      <div className="rounded-card border border-edge bg-raised focus-within:border-accent">
         <label htmlFor="composer" className="sr-only-text">
           Write a message
         </label>
@@ -115,7 +97,9 @@ export function Composer({ busy, onSend, onStop, handleRef }: Props) {
           disabled={busy}
           rows={1}
           placeholder={
-            busy ? `${BRAND.assistantLabel} is replying…` : 'Ask anything. Enter sends, Shift+Enter adds a line.'
+            busy
+              ? `${BRAND.assistantLabel} is replying…`
+              : 'Ask anything. Enter sends, Shift+Enter adds a line.'
           }
           aria-describedby="composer-hint"
           onChange={(e) => setText(e.target.value)}
@@ -125,25 +109,25 @@ export function Composer({ busy, onSend, onStop, handleRef }: Props) {
               submit();
             }
           }}
-          className="w-full resize-none bg-transparent text-[1rem] leading-[1.6] text-ink outline-none placeholder:text-muted disabled:opacity-50"
+          className="w-full resize-none bg-transparent px-3 pt-2.5 text-[15px] leading-[1.55] text-ink outline-none placeholder:text-muted disabled:opacity-50"
         />
 
         {attachments.length > 0 && (
-          <ul className="mt-2 flex flex-wrap gap-2">
+          <ul className="flex flex-wrap gap-1.5 px-3 pt-2">
             {attachments.map((att) => (
               <li
                 key={att.id}
-                className="flex items-center gap-2 rounded-pill border border-edge bg-raised px-2.5 py-1 meta text-muted"
+                className="flex items-center gap-1.5 rounded-pill border border-edge bg-surface px-2 py-0.5 meta text-muted"
               >
-                <Paperclip aria-hidden="true" size={12} strokeWidth={1.75} />
+                <Paperclip aria-hidden="true" size={12} strokeWidth={2} />
                 <span className="text-ink">{att.name}</span>
-                <span className="tabular-nums">{fileSize(att.size)}</span>
+                <span>{fileSize(att.size)}</span>
                 <button
                   type="button"
                   onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
                   className="rounded-pill p-0.5 transition-colors hover:bg-hover hover:text-danger"
                 >
-                  <X aria-hidden="true" size={12} strokeWidth={2} />
+                  <X aria-hidden="true" size={12} strokeWidth={2.5} />
                   <span className="sr-only-text">Remove {att.name}</span>
                 </button>
               </li>
@@ -151,55 +135,59 @@ export function Composer({ busy, onSend, onStop, handleRef }: Props) {
           </ul>
         )}
 
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              className="sr-only-text"
-              id="composer-files"
-              onChange={(e) => onFiles(e.target.files)}
-            />
-            <label
-              htmlFor="composer-files"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  fileRef.current?.click();
-                }
-              }}
-              className="btn btn-quiet cursor-pointer"
-            >
-              <Paperclip aria-hidden="true" size={13} strokeWidth={2} />
-              Attach
-            </label>
-            <p id="composer-hint" className="meta text-muted">
-              {overBudget ? (
-                <span className="text-danger">Over budget — trim before sending.</span>
-              ) : (
-                'Enter to send · Shift+Enter for a new line'
-              )}
-            </p>
-          </div>
+        <div className="flex flex-wrap items-center gap-2 px-2 pb-2 pt-1.5">
+          <input
+            ref={fileRef}
+            type="file"
+            multiple
+            className="sr-only-text"
+            id="composer-files"
+            onChange={(e) => onFiles(e.target.files)}
+          />
+          <label
+            htmlFor="composer-files"
+            tabIndex={0}
+            title="Attach files"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                fileRef.current?.click();
+              }
+            }}
+            className="icon-btn cursor-pointer"
+          >
+            <Paperclip aria-hidden="true" size={15} strokeWidth={2} />
+            <span className="sr-only-text">Attach files</span>
+          </label>
+
+          <p id="composer-hint" className="meta text-muted">
+            {overBudget ? (
+              <span className="text-danger">Over the context budget — trim before sending.</span>
+            ) : (
+              'Enter to send · Shift+Enter for a new line'
+            )}
+          </p>
+
+          <div className="flex-1" />
+
+          <span className={`meta ${overBudget ? 'text-danger' : 'text-muted'}`}>
+            {text.length ? `${text.length} ch · ` : ''}~{tokens.toLocaleString()} /{' '}
+            {TOKEN_BUDGET.toLocaleString()} tok
+          </span>
 
           {busy ? (
-            <button
-              type="button"
-              onClick={onStop}
-              className="btn btn-quiet"
-            >
-              <Square aria-hidden="true" size={11} strokeWidth={2} className="fill-current text-danger" />
+            <button type="button" onClick={onStop} className="btn btn-quiet btn-sm">
+              <Square
+                aria-hidden="true"
+                size={10}
+                strokeWidth={2}
+                className="fill-current text-danger"
+              />
               Stop
-              <kbd className="ml-0.5 meta font-normal text-muted">Esc</kbd>
+              <kbd className="meta font-normal text-muted">Esc</kbd>
             </button>
           ) : (
-            <button
-              type="submit"
-              disabled={!canSend}
-              className="btn btn-primary"
-            >
+            <button type="submit" disabled={!canSend} className="btn btn-primary btn-sm">
               Send
               <CornerDownLeft aria-hidden="true" size={13} strokeWidth={2.25} />
             </button>

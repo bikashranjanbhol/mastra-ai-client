@@ -16,8 +16,14 @@ interface Props {
   onRetry: (id: string) => void;
 }
 
-/** A rail control: always visible, never a hover-only affordance. */
-function RailAction({
+/**
+ * An action on the message header.
+ *
+ * Revealed on hover *and* on focus-within, so the row stays quiet at rest
+ * without putting the controls out of reach — they remain in the tab order at
+ * all times and become visible the moment focus lands on them.
+ */
+function RowAction({
   icon: Icon,
   label,
   onClick,
@@ -27,20 +33,19 @@ function RailAction({
   icon: typeof Copy;
   label: string;
   onClick: () => void;
-  tone?: 'muted' | 'accent' | 'success';
+  tone?: 'muted' | 'success';
   disabled?: boolean;
 }) {
-  const toneClass =
-    tone === 'accent' ? 'text-accent' : tone === 'success' ? 'text-success' : 'text-muted';
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`flex items-center gap-1.5 rounded-pill px-2 py-1 text-[12px] font-semibold ${toneClass} transition-colors hover:bg-hover hover:text-ink disabled:pointer-events-none disabled:opacity-35 min-[900px]:w-full`}
+      title={label}
+      className={`icon-btn ${tone === 'success' ? 'text-success' : ''}`}
     >
-      <Icon aria-hidden="true" size={13} strokeWidth={2} />
-      <span>{label}</span>
+      <Icon aria-hidden="true" size={14} strokeWidth={2} />
+      <span className="sr-only-text">{label}</span>
     </button>
   );
 }
@@ -83,61 +88,68 @@ export const MessageRow = memo(function MessageRow({
 
   return (
     <article
+      id={`msg-${message.id}`}
       aria-busy={streaming || undefined}
       aria-label={isUser ? 'Your message' : `${BRAND.assistantLabel} response`}
-      className="grid grid-cols-1 gap-2 border-t border-edge px-5 py-6 min-[900px]:grid-cols-[8.25rem_minmax(0,1fr)] min-[900px]:gap-6 min-[900px]:px-8"
+      className={`group grid grid-cols-[1.25rem_minmax(0,1fr)] gap-x-3 border-b border-edge px-4 py-3 md:px-6 ${
+        isUser ? 'bg-wash' : ''
+      }`}
     >
-      {/* ------------------------------------------------------- margin rail */}
-      <div className="flex flex-row flex-wrap items-center gap-x-4 gap-y-1 min-[900px]:sticky min-[900px]:top-4 min-[900px]:h-fit min-[900px]:flex-col min-[900px]:items-start min-[900px]:gap-1.5">
-        <h3 className="flex items-center gap-2">
-          <SpeakerMark role={message.role} className={isUser ? 'text-accent' : 'text-ink'} />
-          <span className={`label ${isUser ? 'text-accent-text' : 'text-ink'}`}>
-            {isUser ? BRAND.userLabel : BRAND.assistantLabel}
-          </span>
-        </h3>
-
-        <time
-          dateTime={new Date(message.createdAt).toISOString()}
-          className="meta text-muted"
-        >
-          {stamp(message.createdAt)}
-        </time>
-
-        {(message.revision ?? 1) > 1 && (
-          <span className="rounded-pill bg-wash px-2 py-0.5 text-[11px] font-bold text-accent-text">
-            v{message.revision}
-          </span>
-        )}
-
-        <div className="flex flex-row gap-2 min-[900px]:mt-2 min-[900px]:w-full min-[900px]:flex-col min-[900px]:gap-0.5">
-          <RailAction
-            icon={copied ? Check : Copy}
-            tone={copied ? 'success' : 'muted'}
-            label={copied ? 'Copied' : 'Copy'}
-            onClick={() => void copy(message.content)}
-          />
-          {isUser ? (
-            <RailAction
-              icon={PencilLine}
-              label="Edit"
-              onClick={beginEdit}
-              disabled={busy || editing}
-            />
-          ) : (
-            <RailAction
-              icon={RefreshCw}
-              label="Retry"
-              onClick={() => onRegenerate(message.id)}
-              disabled={busy || streaming}
-            />
-          )}
-        </div>
+      {/* Speaker mark — 20px, not a 132px rail and not a lettered circle. */}
+      <div className="pt-1">
+        <SpeakerMark role={message.role} className={isUser ? 'text-accent' : 'text-ink'} />
       </div>
 
-      {/* -------------------------------------------------------------- body */}
       <div className="min-w-0">
+        {/* Header line: who, when, which version, and this row's actions. */}
+        <div className="flex min-h-7 items-center gap-2">
+          <h3 className={`label ${isUser ? 'text-accent-text' : 'text-ink'}`}>
+            {isUser ? BRAND.userLabel : BRAND.assistantLabel}
+          </h3>
+          <time dateTime={new Date(message.createdAt).toISOString()} className="meta text-muted">
+            {stamp(message.createdAt)}
+          </time>
+          {(message.revision ?? 1) > 1 && (
+            <span className="rounded-pill bg-raised px-1.5 py-px text-[11px] font-bold text-accent-text">
+              v{message.revision}
+            </span>
+          )}
+          {message.status === 'stopped' && (
+            <span className="rounded-pill bg-hover px-2 py-px text-[11px] font-semibold text-muted">
+              Stopped
+            </span>
+          )}
+
+          <div className="flex-1" />
+
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+            <RowAction
+              icon={copied ? Check : Copy}
+              tone={copied ? 'success' : 'muted'}
+              label={copied ? 'Copied' : 'Copy message'}
+              onClick={() => void copy(message.content)}
+            />
+            {isUser ? (
+              <RowAction
+                icon={PencilLine}
+                label="Edit and resend"
+                onClick={beginEdit}
+                disabled={busy || editing}
+              />
+            ) : (
+              <RowAction
+                icon={RefreshCw}
+                label="Regenerate response"
+                onClick={() => onRegenerate(message.id)}
+                disabled={busy || streaming}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Body */}
         {editing ? (
-          <div className="border-l-2 border-accent pl-4">
+          <div className="pb-1">
             <label className="sr-only-text" htmlFor={`edit-${message.id}`}>
               Edit your message and resend
             </label>
@@ -160,21 +172,17 @@ export const MessageRow = memo(function MessageRow({
                   commitEdit();
                 }
               }}
-              className="w-full resize-none bg-transparent text-[1rem] leading-[1.6] text-ink outline-none"
+              className="w-full resize-none rounded-ctl border border-accent bg-raised px-3 py-2 text-[15px] leading-[1.55] text-ink outline-none"
               rows={2}
             />
-            <div className="mt-2 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={commitEdit}
-                className="btn btn-primary"
-              >
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button type="button" onClick={commitEdit} className="btn btn-primary btn-sm">
                 Resend
               </button>
               <button
                 type="button"
                 onClick={() => setEditing(false)}
-                className="btn btn-quiet"
+                className="btn btn-quiet btn-sm"
               >
                 Cancel
               </button>
@@ -184,54 +192,48 @@ export const MessageRow = memo(function MessageRow({
             </div>
           </div>
         ) : isUser ? (
-          <div className="border-l-2 border-accent pl-4">
-            <p className="whitespace-pre-wrap text-[1rem] font-medium leading-[1.6] text-ink">
+          <>
+            <p className="whitespace-pre-wrap pb-0.5 text-[15px] font-medium leading-[1.55] text-ink">
               <InlineMarkdown text={message.content} />
             </p>
             {message.attachments?.length ? (
-              <ul className="mt-3 flex flex-wrap gap-2">
+              <ul className="mt-1.5 flex flex-wrap gap-1.5">
                 {message.attachments.map((att) => (
                   <li
                     key={att.id}
-                    className="flex items-center gap-2 rounded-pill border border-edge bg-surface px-2.5 py-1 meta text-muted"
+                    className="flex items-center gap-1.5 rounded-pill border border-edge bg-raised px-2 py-0.5 meta text-muted"
                   >
-                    <Paperclip aria-hidden="true" size={12} strokeWidth={1.75} />
+                    <Paperclip aria-hidden="true" size={12} strokeWidth={2} />
                     <span className="text-ink">{att.name}</span>
-                    <span className="tabular-nums">{fileSize(att.size)}</span>
+                    <span>{fileSize(att.size)}</span>
                   </li>
                 ))}
               </ul>
             ) : null}
-          </div>
+          </>
         ) : (
-          <div className="max-w-[68ch]">
+          <div className="max-w-[82ch]">
             {streaming && !message.content ? (
               <ThinkingIndicator />
             ) : (
               <Markdown source={message.content} streaming={streaming} />
             )}
 
-            {message.status === 'stopped' && (
-              <p className="mt-4 inline-flex items-center rounded-pill bg-hover px-2.5 py-1 text-[12px] font-semibold text-muted">
-                Stopped by you
-              </p>
-            )}
-
             {message.status === 'error' && (
               <div
                 role="alert"
-                className="mt-4 rounded-card border border-danger bg-raised px-4 py-3 text-[0.95rem] shadow-raised"
+                className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-ctl border border-danger bg-raised px-3 py-2"
               >
-                <p className="label text-danger">Connection error</p>
-                <p className="mt-1.5 text-ink">{message.error}</p>
+                <span className="label text-danger">Connection error</span>
+                <span className="min-w-0 flex-1 text-[13px] text-ink">{message.error}</span>
                 <button
                   type="button"
                   onClick={() => onRetry(message.id)}
                   disabled={busy}
-                  className="btn btn-quiet mt-3"
+                  className="btn btn-quiet btn-sm"
                 >
                   <RotateCcw aria-hidden="true" size={13} strokeWidth={2} />
-                  Retry this turn
+                  Retry
                 </button>
               </div>
             )}

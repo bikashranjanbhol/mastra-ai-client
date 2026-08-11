@@ -1,8 +1,8 @@
 # Walmart Assistant
 
-An internal chat client. Every message sits beside a **margin rail** carrying the
-speaker, the time, the version and that message's own actions — no bubbles, no
-avatars, no hover-revealed toolbars.
+An internal chat client, laid out as a three-zone workspace: chat list on the left,
+transcript in the middle, and a context panel on the right that indexes every
+question in the conversation as a jump link.
 
 ```bash
 npm install
@@ -70,12 +70,35 @@ history reproduce the numbers.
 
 ## Layout
 
-The transcript is **left-aligned and bounded at 64rem** rather than centred; past
-that width the surplus stays visible as desk, so the conversation reads as a
-document rather than a centred feed. The composer is a full-bleed slab docked flush
-to the foot of the sheet, repeating the margin rail so a draft reads as the next
-message. Below 900px the rail collapses to a strip above each message and the chat
-list becomes a scrim drawer.
+```
+┌──────────────────────────────────────────────────────────┐
+│ app bar — True Blue, full width, brand + global controls │
+├───────────┬──────────────────────────────┬───────────────┤
+│ chat list │ chat title                   │ details       │
+│ 256px     ├──────────────────────────────┤ questions ↵   │
+│           │ transcript                   │ files         │
+│           ├──────────────────────────────┤ 288px         │
+│           │ composer                     │               │
+└───────────┴──────────────────────────────┴───────────────┘
+```
+
+Three decisions worth knowing:
+
+- **The window is used all the way across.** An earlier revision bounded the
+  transcript and left the surplus empty; that space is now the context panel, which
+  is where a 126-message review actually needs help.
+- **The brand is carried by the chrome.** A full-width blue app bar is what makes the
+  product recognisable at a glance — leaving the colour on a couple of buttons is what
+  made the earlier revision read as generic.
+- **Density is the point.** 15px body at 1.55, message rows at 12px vertical padding,
+  two-line chat rows. This is a tool someone has open all day, not a landing page.
+
+Message identity sits on a compact header line — a 20px speaker mark, the name, the
+time, the version — with that row's actions revealed on hover **and** on focus-within,
+so they stay in the tab order without adding permanent clutter to every row.
+
+Breakpoints: the context panel is hidden below 1180px rather than squeezed, and below
+900px the chat list becomes a scrim drawer.
 
 ## Architecture
 
@@ -92,12 +115,14 @@ src/
                       per animation frame rather than once per token
   hooks/useVirtualList.ts   windowed rendering with ResizeObserver-measured heights
   hooks/useTheme.ts   system / light / dark, resolved onto <html data-theme>
+  components/TopBar.tsx        the blue app bar; where the brand lives
+  components/ContextPanel.tsx  details, question jump-links, files
   components/         shell, transcript, composer, markdown renderer
 ```
 
 A rebrand touches `src/brand.ts` and the token block at the top of `index.css`.
-The information design — the rail, the docked composer, the transcript behaviour —
-lives in the components and does not move when those change.
+The information design — the three zones, the docked composer, the transcript
+behaviour — lives in the components and does not move when those change.
 
 The markdown parser is hand-rolled for one reason: streaming text is almost always
 syntactically broken. An unclosed fence, a table with one row so far, a bold run with
@@ -108,7 +133,9 @@ keeps rendering as it arrives.
 ## Behaviour worth knowing
 
 - **Virtualization** engages above 100 messages. The seeded Region 14 conversation has
-  126 messages; roughly 9 rows are in the DOM at a time.
+  126 messages; roughly 10 rows are in the DOM at a time.
+- **Question jump-links** work across the virtualized window: the scroll goes to the
+  target row's computed offset first, then centres exactly once the row mounts.
 - **Auto-scroll** follows new text only while you are already within 96px of the foot.
   Scroll up and a *Jump to latest* control appears.
 - **Screen readers** are told about state, not tokens: the streaming message carries
@@ -124,6 +151,7 @@ keeps rendering as it arrives.
 | --- | --- |
 | `⌘/Ctrl + K` | search chats |
 | `⌘/Ctrl + B` | collapse or expand the chat list |
+| `⌘/Ctrl + J` | collapse or expand the context panel |
 | `⌘/Ctrl + ⇧ + O` | new chat |
 | `Enter` / `⇧ + Enter` | send / newline |
 | `⌘/Ctrl + Enter` | resend while editing a message |

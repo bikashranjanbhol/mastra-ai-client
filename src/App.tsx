@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { PanelLeft, Plus } from 'lucide-react';
 import { useChat } from './hooks/useChat';
 import { useTheme } from './hooks/useTheme';
 import { Sidebar } from './components/Sidebar';
+import { TopBar } from './components/TopBar';
 import { Masthead } from './components/Masthead';
-import { Transcript } from './components/Transcript';
+import { Transcript, type TranscriptHandle } from './components/Transcript';
 import { Composer, type ComposerHandle } from './components/Composer';
+import { ContextPanel } from './components/ContextPanel';
 
 const DESKTOP = '(min-width: 900px)';
+/** Below this the context panel is hidden entirely rather than squeezed. */
+const WIDE = '(min-width: 1180px)';
 
 export default function App() {
   const chat = useChat();
@@ -16,21 +19,32 @@ export default function App() {
   const [isDesktop, setIsDesktop] = useState(
     () => typeof window !== 'undefined' && window.matchMedia(DESKTOP).matches,
   );
+  const [isWide, setIsWide] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(WIDE).matches,
+  );
   const [railOpen, setRailOpen] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const searchRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<ComposerHandle>(null);
+  const transcriptRef = useRef<TranscriptHandle>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const mq = window.matchMedia(DESKTOP);
-    const onChange = (e: MediaQueryListEvent) => {
+    const desktop = window.matchMedia(DESKTOP);
+    const wide = window.matchMedia(WIDE);
+    const onDesktop = (e: MediaQueryListEvent) => {
       setIsDesktop(e.matches);
       if (e.matches) setDrawerOpen(false);
     };
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
+    const onWide = (e: MediaQueryListEvent) => setIsWide(e.matches);
+    desktop.addEventListener('change', onDesktop);
+    wide.addEventListener('change', onWide);
+    return () => {
+      desktop.removeEventListener('change', onDesktop);
+      wide.removeEventListener('change', onWide);
+    };
   }, []);
 
   const toggleIndex = useCallback(() => {
@@ -65,6 +79,11 @@ export default function App() {
         toggleIndex();
         return;
       }
+      if (mod && e.key.toLowerCase() === 'j') {
+        e.preventDefault();
+        setPanelOpen((v) => !v);
+        return;
+      }
       if (mod && e.shiftKey && e.key.toLowerCase() === 'o') {
         e.preventDefault();
         startNew();
@@ -83,11 +102,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [chat, drawerOpen, focusSearch, startNew, toggleIndex]);
 
-  // Move focus into the drawer when it opens; return it to the page when it shuts.
+  // Move focus into the drawer when it opens.
   useEffect(() => {
     if (!drawerOpen) return;
-    const node = drawerRef.current;
-    const first = node?.querySelector<HTMLElement>('button, input, a[href]');
+    const first = drawerRef.current?.querySelector<HTMLElement>('button, input, a[href]');
     first?.focus();
   }, [drawerOpen]);
 
@@ -110,93 +128,80 @@ export default function App() {
     />
   );
 
+  const showPanel = isWide && panelOpen;
+
   return (
-    <div className="flex h-full w-full overflow-hidden bg-surface">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-surface">
       <a
         href="#composer"
-        className="sr-only-text focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-pill focus:bg-accent focus:px-4 focus:py-2 focus:text-[13px] focus:font-bold focus:text-on-accent"
+        className="sr-only-text focus:not-sr-only focus:absolute focus:left-3 focus:top-14 focus:z-50 focus:rounded-pill focus:bg-accent focus:px-4 focus:py-2 focus:text-[13px] focus:font-bold focus:text-on-accent"
       >
         Skip to composer
       </a>
 
-      {/* ------------------------------------------------- desktop index rail */}
-      {isDesktop &&
-        (railOpen ? (
+      <TopBar
+        onToggleSidebar={toggleIndex}
+        sidebarOpen={isDesktop ? railOpen : drawerOpen}
+        onTogglePanel={() => setPanelOpen((v) => !v)}
+        panelOpen={panelOpen}
+        showPanelToggle={isWide}
+        theme={theme.choice}
+        resolved={theme.resolved}
+        onCycleTheme={theme.cycle}
+      />
+
+      <div className="flex min-h-0 flex-1">
+        {/* ------------------------------------------------------- chat list */}
+        {isDesktop && railOpen && (
           <aside
-            id="index-panel"
+            id="chat-list-panel"
             aria-label="Chat list"
-            className="w-[17rem] shrink-0 border-r border-edge"
+            className="w-64 shrink-0 border-r border-edge"
           >
             {sidebar}
           </aside>
-        ) : (
-          <aside
-            aria-label="Chat list, collapsed"
-            className="flex w-12 shrink-0 flex-col items-center gap-4 border-r border-edge py-3"
-          >
-            <button
-              type="button"
-              onClick={() => setRailOpen(true)}
-              title="Show chat list (⌘B)"
-              className="rounded-pill border border-edge p-2 text-muted transition-colors hover:bg-hover hover:text-ink"
-            >
-              <PanelLeft aria-hidden="true" size={14} strokeWidth={1.75} />
-              <span className="sr-only-text">Show chat list</span>
-            </button>
-            <button
-              type="button"
-              onClick={startNew}
-              title="New chat (⌘⇧O)"
-              className="rounded-pill bg-accent p-2 text-on-accent transition-colors hover:bg-accent-text"
-            >
-              <Plus aria-hidden="true" size={14} strokeWidth={2} />
-              <span className="sr-only-text">New chat</span>
-            </button>
-            <span
-              className="mt-2 label text-muted"
-              style={{ writingMode: 'vertical-rl' }}
-            >
-              Chats · {chat.conversations.length}
-            </span>
-          </aside>
-        ))}
-
-      {/* --------------------------------------------------------- the sheet */}
-      {/* The sheet is left-aligned and bounded rather than centred: past ~64rem
-          the surplus stays visible as desk, which is what keeps the transcript
-          reading as a page rather than a centred feed. */}
-      <main className="flex min-w-0 flex-1 justify-start bg-surface">
-        {active && (
-          <div className="flex w-full min-w-0 max-w-[64rem] flex-col border-edge bg-raised min-[1200px]:border-r">
-            <Masthead
-              conversation={active}
-              onToggleSidebar={toggleIndex}
-              sidebarOpen={isDesktop ? railOpen : drawerOpen}
-              theme={theme.choice}
-              resolved={theme.resolved}
-              onCycleTheme={theme.cycle}
-            />
-
-            <Transcript
-              conversation={active}
-              busy={chat.isGenerating}
-              onSend={(text) => chat.send(text)}
-              onRegenerate={chat.regenerate}
-              onEditSubmit={chat.editAndResend}
-              onRetry={chat.retry}
-            />
-
-            <Composer
-              busy={chat.isGenerating}
-              onSend={chat.send}
-              onStop={chat.stop}
-              handleRef={composerRef}
-            />
-          </div>
         )}
-      </main>
 
-      {/* --------------------------------------------------- mobile drawer */}
+        {/* ------------------------------------------------------ transcript */}
+        <main className="flex min-w-0 flex-1 flex-col bg-raised">
+          {active && (
+            <>
+              <Masthead conversation={active} />
+              <Transcript
+                conversation={active}
+                busy={chat.isGenerating}
+                onSend={(text) => chat.send(text)}
+                onRegenerate={chat.regenerate}
+                onEditSubmit={chat.editAndResend}
+                onRetry={chat.retry}
+                handleRef={transcriptRef}
+              />
+              <Composer
+                busy={chat.isGenerating}
+                onSend={chat.send}
+                onStop={chat.stop}
+                handleRef={composerRef}
+              />
+            </>
+          )}
+        </main>
+
+        {/* --------------------------------------------------- context panel */}
+        {showPanel && active && (
+          <aside
+            id="context-panel"
+            aria-label="Chat details"
+            className="w-72 shrink-0 border-l border-edge"
+          >
+            <ContextPanel
+              conversation={active}
+              onJumpTo={(id) => transcriptRef.current?.jumpTo(id)}
+            />
+          </aside>
+        )}
+      </div>
+
+      {/* ------------------------------------------------------ mobile drawer */}
       {!isDesktop && drawerOpen && (
         <div className="fixed inset-0 z-40 flex">
           <button
@@ -207,7 +212,7 @@ export default function App() {
           />
           <div
             ref={drawerRef}
-            id="index-panel"
+            id="chat-list-panel"
             role="dialog"
             aria-modal="true"
             aria-label="Chat list"
