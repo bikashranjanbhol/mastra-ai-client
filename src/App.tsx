@@ -8,6 +8,10 @@ import { Transcript, type TranscriptHandle } from './components/Transcript';
 import { Composer, type ComposerHandle } from './components/Composer';
 import { ContextPanel } from './components/ContextPanel';
 import { WelcomeHero } from './components/WelcomeHero';
+import { ExploreView } from './components/views/ExploreView';
+import { LibraryView } from './components/views/LibraryView';
+import { HistoryView } from './components/views/HistoryView';
+import type { View } from './types';
 
 const DESKTOP = '(min-width: 900px)';
 /** Below this the context panel is hidden entirely rather than squeezed. */
@@ -26,6 +30,7 @@ export default function App() {
   const [railOpen, setRailOpen] = useState(true);
   const [panelOpen, setPanelOpen] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [view, setView] = useState<View>('home');
 
   const searchRef = useRef<HTMLInputElement>(null);
   const composerRef = useRef<ComposerHandle>(null);
@@ -62,8 +67,28 @@ export default function App() {
   const startNew = useCallback(() => {
     chat.newConversation();
     setDrawerOpen(false);
+    setView('home');
     requestAnimationFrame(() => composerRef.current?.focus());
   }, [chat]);
+
+  /** Opens a chat from any section and returns to the transcript. */
+  const openChat = useCallback(
+    (id: string) => {
+      chat.setActiveId(id);
+      setView('home');
+      setDrawerOpen(false);
+    },
+    [chat],
+  );
+
+  /** Starts a new chat seeded with a prompt — used by Explore. */
+  const askInNewChat = useCallback(
+    (prompt: string) => {
+      setView('home');
+      chat.startChatWith(prompt);
+    },
+    [chat],
+  );
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -112,16 +137,18 @@ export default function App() {
   const isEmpty = !active || active.messages.length === 0;
   // The welcome state matches the reference exactly: no side panel, nothing
   // competing with the greeting.
-  const showPanel = isWide && panelOpen && !isEmpty;
+  const showPanel = isWide && panelOpen && !isEmpty && view === 'home';
 
   const sidebar = (
     <Sidebar
-      conversations={chat.conversations}
-      activeId={chat.activeId}
-      onSelect={(id) => {
-        chat.setActiveId(id);
+      view={view}
+      onSelectView={(next) => {
+        setView(next);
         setDrawerOpen(false);
       }}
+      conversations={chat.conversations}
+      activeId={chat.activeId}
+      onSelect={openChat}
       onRename={chat.renameConversation}
       onDelete={chat.deleteConversation}
       searchRef={searchRef}
@@ -188,13 +215,29 @@ export default function App() {
               sidebarOpen={isDesktop ? railOpen : drawerOpen}
               onTogglePanel={() => setPanelOpen((v) => !v)}
               panelOpen={panelOpen}
-              showPanelToggle={isWide && !isEmpty}
+              showPanelToggle={isWide && !isEmpty && view === 'home'}
               theme={theme.choice}
               resolved={theme.resolved}
               onCycleTheme={theme.cycle}
             />
 
-            {isEmpty ? (
+            {view === 'explore' ? (
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <ExploreView live={chat.backend.status === 'live'} onAsk={askInNewChat} />
+              </div>
+            ) : view === 'library' ? (
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <LibraryView live={chat.backend.status === 'live'} />
+              </div>
+            ) : view === 'history' ? (
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <HistoryView
+                  conversations={chat.conversations}
+                  activeId={chat.activeId}
+                  onOpen={openChat}
+                />
+              </div>
+            ) : isEmpty ? (
               /* Welcome: orb, greeting and composer centred in the card. */
               <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-6">
                 <div className="w-full max-w-[720px]">

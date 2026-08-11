@@ -1,11 +1,25 @@
 import { useMemo, useState, type RefObject } from 'react';
-import { Check, ChevronsUpDown, Pencil, Search, Trash2, X, Zap } from 'lucide-react';
-import type { Conversation } from '../types';
+import {
+  BookOpen,
+  Check,
+  ChevronsUpDown,
+  Clock,
+  Compass,
+  Home,
+  Pencil,
+  Search,
+  Trash2,
+  X,
+  Zap,
+} from 'lucide-react';
+import type { Conversation, View } from '../types';
 import { plural } from '../lib/format';
 import { BrandMark, UserAvatar } from './BrandMark';
 import { BRAND, demoUser } from '../brand';
 
 interface Props {
+  view: View;
+  onSelectView: (view: View) => void;
   conversations: Conversation[];
   activeId: string;
   onSelect: (id: string) => void;
@@ -42,7 +56,16 @@ const ORDER = ['Today', 'Yesterday', 'Previous 7 days', 'Previous 30 days', 'Old
  * Conversations are grouped by recency rather than listed flat — with a long
  * history the date bands are what make the list scannable.
  */
+const NAV: Array<{ view: View; label: string; icon: typeof Home }> = [
+  { view: 'home', label: 'Home', icon: Home },
+  { view: 'explore', label: 'Explore', icon: Compass },
+  { view: 'library', label: 'Library', icon: BookOpen },
+  { view: 'history', label: 'History', icon: Clock },
+];
+
 export function Sidebar({
+  view,
+  onSelectView,
   conversations,
   activeId,
   onSelect,
@@ -124,8 +147,41 @@ export function Sidebar({
         </kbd>
       </div>
 
+      {/* Sections */}
+      <nav aria-label="Sections" className="mt-4 px-2">
+        <ul className="space-y-0.5">
+          {NAV.map((item) => {
+            const active = view === item.view;
+            return (
+              <li key={item.view}>
+                <button
+                  type="button"
+                  onClick={() => onSelectView(item.view)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex w-full items-center gap-2.5 rounded-ctl px-2.5 py-2 text-left text-[14px] transition-colors ${
+                    active
+                      ? 'bg-wash font-semibold text-accent-text'
+                      : 'text-muted hover:bg-hover hover:text-ink'
+                  }`}
+                >
+                  <item.icon
+                    aria-hidden="true"
+                    size={16}
+                    strokeWidth={2}
+                    className={active ? 'text-accent' : ''}
+                  />
+                  {item.label}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </nav>
+
+      <div className="mx-4 mt-4 border-t border-edge" />
+
       {/* Grouped history */}
-      <nav aria-label="Chat list" className="mt-5 min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+      <nav aria-label="Chat list" className="mt-3 min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {total === 0 ? (
           <p className="px-2 py-4 meta text-muted">No chats match “{query}”.</p>
         ) : (

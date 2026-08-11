@@ -54,3 +54,6 @@ export interface Conversation {
 }
 
 export type ThemeChoice = 'system' | 'light' | 'dark';
+
+/** Which section the main panel is showing. */
+export type View = 'home' | 'explore' | 'library' | 'history';

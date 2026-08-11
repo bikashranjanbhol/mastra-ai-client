@@ -584,6 +584,47 @@ export function useChat() {
     [activeId, conversations, dropServerMessages, generatingIn, startAssistantTurn],
   );
 
+  /**
+   * Opens a new chat and sends the first message as one operation.
+   *
+   * Callers cannot compose `newConversation()` and `send()` themselves: `send`
+   * closes over the conversation list from the render it was created in, so a
+   * message queued right after creating a chat lands in the previous one.
+   */
+  const startChatWith = useCallback(
+    (text: string, mode: ReplyMode = 'standard') => {
+      const body = text.trim();
+      if (!body || generatingIn) return;
+
+      const conv = blankConversation();
+      const title = titleFrom(body);
+      const userMessage: Message = {
+        id: uid('msg'),
+        role: 'user',
+        content: body,
+        createdAt: Date.now(),
+        status: 'complete',
+      };
+
+      loadedThreads.current.add(conv.id);
+      setConversations((prev) => [{ ...conv, title, messages: [userMessage] }, ...prev]);
+      setActiveId(conv.id);
+      startAssistantTurn(conv.id, [userMessage], mode);
+
+      if (live) {
+        void (async () => {
+          try {
+            const threadId = await resolveThread(conv.id, title);
+            await renameThread(threadId, title);
+          } catch {
+            // The chat still works; only the stored title lags.
+          }
+        })();
+      }
+    },
+    [generatingIn, live, resolveThread, startAssistantTurn],
+  );
+
   const newConversation = useCallback(() => {
     const draft = blankConversation();
     loadedThreads.current.add(draft.id);
@@ -659,6 +700,7 @@ export function useChat() {
     agents,
     agentId,
     selectAgent,
+    startChatWith,
   };
 }
 

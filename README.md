@@ -66,6 +66,18 @@ mid-line, mid-event or mid-UTF-8-codepoint, so nothing is assumed about where
 boundaries fall, and one malformed frame is dropped rather than killing the
 connection.
 
+### The four sections
+
+The sidebar nav switches what the main panel shows. Each is backed by the
+service rather than being a placeholder:
+
+| Section | What it is |
+| --- | --- |
+| **Home** | The chat: welcome state or the current transcript. |
+| **Explore** | Search the documentation corpus by running the agent's own `search_docs` tool (`POST /tools/search_docs/execute`), so results are exactly what the assistant would retrieve. Any passage can be opened as a new chat. |
+| **Library** | The agents and tools this workspace is running, read live from `GET /agents` and `GET /tools` — including each tool's input fields. It cannot drift from what is deployed. |
+| **History** | Every chat with dates and a filter over titles and message text. The sidebar list stays terse; this is the view for finding something from weeks ago. |
+
 ### Agent selection
 
 The picker lists every agent the service registers (`GET /agents`) and switching
