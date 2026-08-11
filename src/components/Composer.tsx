@@ -1,5 +1,5 @@
 import { useEffect, useImperativeHandle, useRef, useState, type RefObject } from 'react';
-import { ArrowUp, Brain, Paperclip, Sparkles, Square, Telescope, X } from 'lucide-react';
+import { ArrowUp, Lightbulb, Paperclip, Sparkles, Square, Telescope, X } from 'lucide-react';
 import type { Attachment, ReplyMode } from '../types';
 import { estimateTokens } from '../lib/markdown';
 import { fileSize } from '../lib/format';
@@ -30,8 +30,12 @@ const kindOf = (name: string): Attachment['kind'] => {
   return 'other';
 };
 
-const TOOLS: Array<{ mode: Exclude<ReplyMode, 'standard'>; label: string; icon: typeof Brain }> = [
-  { mode: 'reasoning', label: 'Reasoning', icon: Brain },
+const TOOLS: Array<{
+  mode: Exclude<ReplyMode, 'standard'>;
+  label: string;
+  icon: typeof Lightbulb;
+}> = [
+  { mode: 'reasoning', label: 'Reasoning', icon: Lightbulb },
   { mode: 'research', label: 'Deep Research', icon: Telescope },
 ];
 

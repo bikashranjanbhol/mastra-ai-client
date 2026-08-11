@@ -2,7 +2,7 @@ import { useMemo, useState, type RefObject } from 'react';
 import { Check, ChevronsUpDown, Pencil, Search, Trash2, X, Zap } from 'lucide-react';
 import type { Conversation } from '../types';
 import { plural } from '../lib/format';
-import { BrandMark } from './BrandMark';
+import { BrandMark, UserAvatar } from './BrandMark';
 import { BRAND, demoUser } from '../brand';
 
 interface Props {
@@ -267,12 +267,7 @@ export function Sidebar({
       {/* Signed-in user */}
       <div className="p-3 pt-1">
         <div className="flex items-center gap-2.5 rounded-ctl border border-edge bg-surface px-2.5 py-2">
-          <span
-            aria-hidden="true"
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-ctl bg-accent"
-          >
-            <BrandMark size={18} />
-          </span>
+          <UserAvatar size={32} />
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-bold leading-tight text-ink">
               {demoUser.name}

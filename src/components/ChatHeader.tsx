@@ -52,8 +52,8 @@ function ModelPicker({ modelId, onSelect }: { modelId: string; onSelect: (id: st
         aria-expanded={open}
         className="flex items-center gap-2 rounded-pill border border-edge bg-raised py-1.5 pl-1.5 pr-3 text-[14px] font-bold text-ink shadow-raised transition-colors hover:bg-hover"
       >
-        <span aria-hidden="true" className="grid h-6 w-6 place-items-center rounded-pill bg-wash">
-          <BrandMark size={16} />
+        <span aria-hidden="true" className="grid h-7 w-7 place-items-center rounded-pill bg-wash">
+          <BrandMark size={15} tone="glyph" className="text-accent-text" />
         </span>
         {current.name}
         <ChevronDown aria-hidden="true" size={15} strokeWidth={2.25} className="text-muted" />

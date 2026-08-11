@@ -25,7 +25,7 @@ are marked in `src/brand.ts`.
 | Item | Status | What to do |
 | --- | --- | --- |
 | **Bogle** | Not bundled — licensed | Named first in the font stack, so it is used wherever installed. Add the licensed web fonts to `public/fonts/` and an `@font-face` block. Fallback today is Helvetica Neue → Arial. |
-| **The Spark mark** | Placeholder | `BrandMark` draws a neutral shape. Drop the official SVG in and delete the placeholder — it should not be traced or redrawn. |
+| **The Spark mark** | Original stand-in | `BrandMark` draws an original glyph — three ascending bars capped by a dot — *not* the Spark, which is a registered trademark and should not be traced from memory. Swap the glyph for the official SVG and every use follows, including the speaker marks and `public/favicon.svg`. |
 | **Product name** | Working title | `BRAND.productName` in `src/brand.ts`. |
 | **Signed-in user** | Fixture | `demoUser` in `src/brand.ts` feeds the sidebar footer. Wire it to the real session once auth exists. |
 | **Semantic + dark tokens** | Derived here | True Blue, Spark Yellow and Bentonville Blue are the published core. Success, warning, danger and the whole dark theme were derived for contrast, not taken from the internal design system. Reconcile them. |
@@ -127,6 +127,7 @@ src/
                       per animation frame rather than once per token
   hooks/useVirtualList.ts   windowed rendering with ResizeObserver-measured heights
   hooks/useTheme.ts   system / light / dark, resolved onto <html data-theme>
+  components/BrandMark.tsx     product mark, speaker marks, user avatar
   components/ChatHeader.tsx    model picker, theme, panel toggles, New Chat
   components/WelcomeHero.tsx   orb, greeting, opening prompts
   components/ContextPanel.tsx  details, question jump-links, files
