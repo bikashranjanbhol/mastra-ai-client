@@ -10,7 +10,6 @@ import {
 import { ArrowDown } from 'lucide-react';
 import type { Conversation } from '../types';
 import { MessageRow } from './MessageRow';
-import { EmptyState } from './EmptyState';
 import { useVirtualList } from '../hooks/useVirtualList';
 import { plural } from '../lib/format';
 
@@ -26,7 +25,6 @@ export interface TranscriptHandle {
 interface Props {
   conversation: Conversation;
   busy: boolean;
-  onSend: (text: string) => void;
   onRegenerate: (id: string) => void;
   onEditSubmit: (id: string, text: string) => void;
   onRetry: (id: string) => void;
@@ -36,7 +34,6 @@ interface Props {
 export function Transcript({
   conversation,
   busy,
-  onSend,
   onRegenerate,
   onEditSubmit,
   onRetry,
@@ -181,19 +178,11 @@ export function Transcript({
         aria-live="polite"
         aria-relevant="additions"
         aria-label={`Transcript of ${conversation.title}`}
-        className="h-full overflow-y-auto overflow-x-hidden bg-raised focus-visible:outline-offset-[-2px]"
+        className="h-full overflow-y-auto overflow-x-hidden focus-visible:outline-offset-[-2px]"
       >
-        {count === 0 ? (
-          <EmptyState onPick={onSend} />
-        ) : (
-          <>
-            {virtualized && padTop > 0 && <div style={{ height: padTop }} aria-hidden="true" />}
-            {rows}
-            {virtualized && padBottom > 0 && (
-              <div style={{ height: padBottom }} aria-hidden="true" />
-            )}
-          </>
-        )}
+        {virtualized && padTop > 0 && <div style={{ height: padTop }} aria-hidden="true" />}
+        {rows}
+        {virtualized && padBottom > 0 && <div style={{ height: padBottom }} aria-hidden="true" />}
 
         {count > 0 && (
           <p className="px-4 py-3 meta text-muted md:px-6">
@@ -213,7 +202,7 @@ export function Transcript({
         <button
           type="button"
           onClick={() => scrollToLatest()}
-          className="btn btn-sm absolute bottom-3 right-4 border border-edge bg-raised text-ink shadow-pop hover:bg-hover md:right-6"
+          className="btn btn-sm absolute bottom-3 right-4 border border-edge bg-raised text-ink shadow-pop hover:bg-hover md:right-5"
         >
           <ArrowDown aria-hidden="true" size={14} strokeWidth={2.25} className="text-accent" />
           Jump to latest

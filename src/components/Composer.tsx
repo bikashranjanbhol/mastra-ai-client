@@ -1,6 +1,6 @@
 import { useEffect, useImperativeHandle, useRef, useState, type RefObject } from 'react';
-import { CornerDownLeft, Paperclip, Square, X } from 'lucide-react';
-import type { Attachment } from '../types';
+import { ArrowUp, Brain, Paperclip, Sparkles, Square, Telescope, X } from 'lucide-react';
+import type { Attachment, ReplyMode } from '../types';
 import { estimateTokens } from '../lib/markdown';
 import { fileSize } from '../lib/format';
 import { uid } from '../lib/seed';
@@ -15,8 +15,10 @@ export interface ComposerHandle {
 
 interface Props {
   busy: boolean;
-  onSend: (text: string, attachments: Attachment[]) => void;
+  onSend: (text: string, attachments: Attachment[], mode: ReplyMode) => void;
   onStop: () => void;
+  /** Roomier in the welcome state, compact once the transcript has content. */
+  variant?: 'hero' | 'docked';
   handleRef?: RefObject<ComposerHandle | null>;
 }
 
@@ -28,14 +30,23 @@ const kindOf = (name: string): Attachment['kind'] => {
   return 'other';
 };
 
+const TOOLS: Array<{ mode: Exclude<ReplyMode, 'standard'>; label: string; icon: typeof Brain }> = [
+  { mode: 'reasoning', label: 'Reasoning', icon: Brain },
+  { mode: 'research', label: 'Deep Research', icon: Telescope },
+];
+
 /**
- * Docked to the foot of the transcript, full width, with the controls on one
- * line under the input. No side rail — the space it used to occupy is the
- * transcript's now.
+ * The composer.
+ *
+ * Both tools are wired to the request rather than decorative: reasoning spends
+ * longer before the first token and prepends its working, research appends the
+ * sources it consulted. Exactly one can be active at a time, so the tray reads
+ * as a mode switch rather than a set of independent flags.
  */
-export function Composer({ busy, onSend, onStop, handleRef }: Props) {
+export function Composer({ busy, onSend, onStop, variant = 'docked', handleRef }: Props) {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [mode, setMode] = useState<ReplyMode>('standard');
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -59,7 +70,7 @@ export function Composer({ busy, onSend, onStop, handleRef }: Props) {
 
   const submit = () => {
     if (!canSend) return;
-    onSend(text, attachments);
+    onSend(text, attachments, mode);
     setText('');
     setAttachments([]);
   };
@@ -78,46 +89,59 @@ export function Composer({ busy, onSend, onStop, handleRef }: Props) {
     if (fileRef.current) fileRef.current.value = '';
   };
 
+  const hero = variant === 'hero';
+
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
-      className="shrink-0 border-t border-edge bg-surface px-4 py-3 md:px-6"
+      className="relative isolate w-full"
     >
-      <div className="rounded-card border border-edge bg-raised focus-within:border-accent">
-        <label htmlFor="composer" className="sr-only-text">
-          Write a message
-        </label>
-        <textarea
-          id="composer"
-          ref={areaRef}
-          value={text}
-          disabled={busy}
-          rows={1}
-          placeholder={
-            busy
-              ? `${BRAND.assistantLabel} is replying…`
-              : 'Ask anything. Enter sends, Shift+Enter adds a line.'
-          }
-          aria-describedby="composer-hint"
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              submit();
+      {/* Decorative light spill behind the card. */}
+      <div className="aurora" aria-hidden="true" />
+
+      <div className="card overflow-hidden">
+        <div className="flex items-start gap-2 px-4 pt-3.5">
+          <Sparkles
+            aria-hidden="true"
+            size={17}
+            strokeWidth={2}
+            className="mt-[3px] shrink-0 text-accent"
+          />
+          <label htmlFor="composer" className="sr-only-text">
+            Write a message
+          </label>
+          <textarea
+            id="composer"
+            ref={areaRef}
+            value={text}
+            disabled={busy}
+            rows={1}
+            placeholder={
+              busy ? `${BRAND.assistantLabel} is replying…` : 'Initiate a query or send a command…'
             }
-          }}
-          className="w-full resize-none bg-transparent px-3 pt-2.5 text-[15px] leading-[1.55] text-ink outline-none placeholder:text-muted disabled:opacity-50"
-        />
+            aria-describedby="composer-hint"
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            className={`w-full resize-none bg-transparent text-[15px] leading-[1.55] text-ink outline-none placeholder:text-muted disabled:opacity-50 ${
+              hero ? 'min-h-20' : ''
+            }`}
+          />
+        </div>
 
         {attachments.length > 0 && (
-          <ul className="flex flex-wrap gap-1.5 px-3 pt-2">
+          <ul className="flex flex-wrap gap-1.5 px-4 pt-2">
             {attachments.map((att) => (
               <li
                 key={att.id}
-                className="flex items-center gap-1.5 rounded-pill border border-edge bg-surface px-2 py-0.5 meta text-muted"
+                className="flex items-center gap-1.5 rounded-pill border border-edge bg-surface px-2.5 py-1 meta text-muted"
               >
                 <Paperclip aria-hidden="true" size={12} strokeWidth={2} />
                 <span className="text-ink">{att.name}</span>
@@ -135,7 +159,8 @@ export function Composer({ busy, onSend, onStop, handleRef }: Props) {
           </ul>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 px-2 pb-2 pt-1.5">
+        {/* Tool tray */}
+        <div className="flex flex-wrap items-center gap-2 px-3 pb-3 pt-3">
           <input
             ref={fileRef}
             type="file"
@@ -154,42 +179,60 @@ export function Composer({ busy, onSend, onStop, handleRef }: Props) {
                 fileRef.current?.click();
               }
             }}
-            className="icon-btn cursor-pointer"
+            className="chip cursor-pointer px-2.5"
           >
             <Paperclip aria-hidden="true" size={15} strokeWidth={2} />
             <span className="sr-only-text">Attach files</span>
           </label>
 
-          <p id="composer-hint" className="meta text-muted">
-            {overBudget ? (
-              <span className="text-danger">Over the context budget — trim before sending.</span>
-            ) : (
-              'Enter to send · Shift+Enter for a new line'
-            )}
-          </p>
+          {TOOLS.map((tool) => (
+            <button
+              key={tool.mode}
+              type="button"
+              aria-pressed={mode === tool.mode}
+              disabled={busy}
+              onClick={() => setMode((m) => (m === tool.mode ? 'standard' : tool.mode))}
+              className="chip"
+            >
+              <tool.icon aria-hidden="true" size={15} strokeWidth={2} />
+              {tool.label}
+            </button>
+          ))}
 
           <div className="flex-1" />
 
-          <span className={`meta ${overBudget ? 'text-danger' : 'text-muted'}`}>
-            {text.length ? `${text.length} ch · ` : ''}~{tokens.toLocaleString()} /{' '}
-            {TOKEN_BUDGET.toLocaleString()} tok
+          <span
+            id="composer-hint"
+            className={`meta ${overBudget ? 'text-danger' : 'text-muted'} ${
+              text.length ? 'hidden sm:block' : 'sr-only-text'
+            }`}
+          >
+            {overBudget
+              ? 'Over the context budget — trim before sending.'
+              : text.length
+                ? `${text.length} ch · ~${tokens.toLocaleString()} / ${TOKEN_BUDGET.toLocaleString()} tok`
+                : 'Enter to send, Shift+Enter for a new line.'}
           </span>
 
           {busy ? (
-            <button type="button" onClick={onStop} className="btn btn-quiet btn-sm">
-              <Square
-                aria-hidden="true"
-                size={10}
-                strokeWidth={2}
-                className="fill-current text-danger"
-              />
-              Stop
-              <kbd className="meta font-normal text-muted">Esc</kbd>
+            <button
+              type="button"
+              onClick={onStop}
+              title="Stop generating (Esc)"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-pill border border-edge bg-raised text-danger transition-colors hover:bg-hover"
+            >
+              <Square aria-hidden="true" size={12} strokeWidth={2} className="fill-current" />
+              <span className="sr-only-text">Stop generating</span>
             </button>
           ) : (
-            <button type="submit" disabled={!canSend} className="btn btn-primary btn-sm">
-              Send
-              <CornerDownLeft aria-hidden="true" size={13} strokeWidth={2.25} />
+            <button
+              type="submit"
+              disabled={!canSend}
+              title="Send"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-pill bg-accent text-on-accent transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-transparent disabled:text-muted disabled:shadow-[inset_0_0_0_1px_var(--line)]"
+            >
+              <ArrowUp aria-hidden="true" size={17} strokeWidth={2.5} />
+              <span className="sr-only-text">Send message</span>
             </button>
           )}
         </div>

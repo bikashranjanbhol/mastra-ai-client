@@ -2,9 +2,8 @@
  * Brand layer.
  *
  * Everything brand-specific is named here or in the token block at the top of
- * `index.css`. The product's information design — the margin rail, the docked
- * composer, the transcript behaviour — lives in the components and does not
- * change when this file does.
+ * `index.css`. The product's information design lives in the components and
+ * does not change when this file does.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * BEFORE SHIPPING, replace with values from the official brand kit:
@@ -20,16 +19,39 @@
  *      published core palette. The success/warning/danger values and the whole
  *      dark theme are derived here for contrast, not taken from the internal
  *      design system — reconcile them with it.
+ *   5. The signed-in user. `demoUser` is fixture data for the demo; wire the
+ *      sidebar footer to the real session once auth exists.
  * ─────────────────────────────────────────────────────────────────────────────
  */
 export const BRAND = {
   org: 'Walmart',
   productName: 'Walmart Assistant',
-  /** Used where the full name will not fit — the collapsed rail, the tab title. */
+  /** Used where the full name will not fit. */
   shortName: 'Assistant',
-  /** Shown under the wordmark in the sidebar. */
   descriptor: 'Internal · Associate tools',
-  /** What the model calls itself in the transcript rail. */
   assistantLabel: 'Assistant',
   userLabel: 'You',
 } as const;
+
+/** Fixture — replace with the authenticated session. */
+export const demoUser = {
+  name: 'Jordan Avery',
+  email: 'jordan.avery@example.com',
+  role: 'Merchandising · Region 14',
+} as const;
+
+export interface ModelOption {
+  id: string;
+  name: string;
+  blurb: string;
+}
+
+/**
+ * Selectable models. The mock backend ignores which one is chosen beyond
+ * stamping it on the reply; a real client would pass `id` through to the API.
+ */
+export const MODELS: ModelOption[] = [
+  { id: 'assistant-pro', name: 'Assistant Pro', blurb: 'Best for analysis and long documents' },
+  { id: 'assistant-fast', name: 'Assistant Fast', blurb: 'Quicker replies, shorter answers' },
+  { id: 'assistant-code', name: 'Assistant Code', blurb: 'Tuned for queries and integrations' },
+];

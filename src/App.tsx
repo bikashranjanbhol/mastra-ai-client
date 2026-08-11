@@ -2,15 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChat } from './hooks/useChat';
 import { useTheme } from './hooks/useTheme';
 import { Sidebar } from './components/Sidebar';
-import { TopBar } from './components/TopBar';
+import { ChatHeader } from './components/ChatHeader';
 import { Masthead } from './components/Masthead';
 import { Transcript, type TranscriptHandle } from './components/Transcript';
 import { Composer, type ComposerHandle } from './components/Composer';
 import { ContextPanel } from './components/ContextPanel';
+import { WelcomeHero } from './components/WelcomeHero';
 
 const DESKTOP = '(min-width: 900px)';
 /** Below this the context panel is hidden entirely rather than squeezed. */
-const WIDE = '(min-width: 1180px)';
+const WIDE = '(min-width: 1280px)';
 
 export default function App() {
   const chat = useChat();
@@ -55,7 +56,6 @@ export default function App() {
   const focusSearch = useCallback(() => {
     if (!window.matchMedia(DESKTOP).matches) setDrawerOpen(true);
     else setRailOpen(true);
-    // Wait a frame so the panel exists before the focus call lands.
     requestAnimationFrame(() => searchRef.current?.focus());
   }, []);
 
@@ -102,7 +102,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [chat, drawerOpen, focusSearch, startNew, toggleIndex]);
 
-  // Move focus into the drawer when it opens.
   useEffect(() => {
     if (!drawerOpen) return;
     const first = drawerRef.current?.querySelector<HTMLElement>('button, input, a[href]');
@@ -110,6 +109,10 @@ export default function App() {
   }, [drawerOpen]);
 
   const active = chat.active;
+  const isEmpty = !active || active.messages.length === 0;
+  // The welcome state matches the reference exactly: no side panel, nothing
+  // competing with the greeting.
+  const showPanel = isWide && panelOpen && !isEmpty;
 
   const sidebar = (
     <Sidebar
@@ -119,7 +122,6 @@ export default function App() {
         chat.setActiveId(id);
         setDrawerOpen(false);
       }}
-      onNew={startNew}
       onRename={chat.renameConversation}
       onDelete={chat.deleteConversation}
       searchRef={searchRef}
@@ -128,82 +130,104 @@ export default function App() {
     />
   );
 
-  const showPanel = isWide && panelOpen;
-
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden bg-surface">
+    <div className="flex h-full w-full gap-2.5 overflow-hidden bg-page p-2.5">
       <a
         href="#composer"
-        className="sr-only-text focus:not-sr-only focus:absolute focus:left-3 focus:top-14 focus:z-50 focus:rounded-pill focus:bg-accent focus:px-4 focus:py-2 focus:text-[13px] focus:font-bold focus:text-on-accent"
+        className="sr-only-text focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-pill focus:bg-accent focus:px-4 focus:py-2 focus:text-[13px] focus:font-bold focus:text-on-accent"
       >
         Skip to composer
       </a>
 
-      <TopBar
-        onToggleSidebar={toggleIndex}
-        sidebarOpen={isDesktop ? railOpen : drawerOpen}
-        onTogglePanel={() => setPanelOpen((v) => !v)}
-        panelOpen={panelOpen}
-        showPanelToggle={isWide}
-        theme={theme.choice}
-        resolved={theme.resolved}
-        onCycleTheme={theme.cycle}
-      />
+      {/* ------------------------------------------------------ chat list card */}
+      {isDesktop && railOpen && (
+        <aside
+          id="chat-list-panel"
+          aria-label="Chat list"
+          className="card w-[272px] shrink-0 overflow-hidden"
+        >
+          {sidebar}
+        </aside>
+      )}
 
-      <div className="flex min-h-0 flex-1">
-        {/* ------------------------------------------------------- chat list */}
-        {isDesktop && railOpen && (
-          <aside
-            id="chat-list-panel"
-            aria-label="Chat list"
-            className="w-64 shrink-0 border-r border-edge"
-          >
-            {sidebar}
-          </aside>
-        )}
-
-        {/* ------------------------------------------------------ transcript */}
-        <main className="flex min-w-0 flex-1 flex-col bg-raised">
-          {active && (
-            <>
-              <Masthead conversation={active} />
-              <Transcript
-                conversation={active}
-                busy={chat.isGenerating}
-                onSend={(text) => chat.send(text)}
-                onRegenerate={chat.regenerate}
-                onEditSubmit={chat.editAndResend}
-                onRetry={chat.retry}
-                handleRef={transcriptRef}
-              />
-              <Composer
-                busy={chat.isGenerating}
-                onSend={chat.send}
-                onStop={chat.stop}
-                handleRef={composerRef}
-              />
-            </>
-          )}
-        </main>
-
-        {/* --------------------------------------------------- context panel */}
-        {showPanel && active && (
-          <aside
-            id="context-panel"
-            aria-label="Chat details"
-            className="w-72 shrink-0 border-l border-edge"
-          >
-            <ContextPanel
-              conversation={active}
-              onJumpTo={(id) => transcriptRef.current?.jumpTo(id)}
+      {/* ----------------------------------------------------------- main card */}
+      <main className="card flex min-w-0 flex-1 flex-col overflow-hidden">
+        {active && (
+          <>
+            <ChatHeader
+              modelId={chat.modelId}
+              onSelectModel={chat.setModelId}
+              onNewChat={startNew}
+              onToggleSidebar={toggleIndex}
+              sidebarOpen={isDesktop ? railOpen : drawerOpen}
+              onTogglePanel={() => setPanelOpen((v) => !v)}
+              panelOpen={panelOpen}
+              showPanelToggle={isWide && !isEmpty}
+              theme={theme.choice}
+              resolved={theme.resolved}
+              onCycleTheme={theme.cycle}
             />
-          </aside>
+
+            {isEmpty ? (
+              /* Welcome: orb, greeting and composer centred in the card. */
+              <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-4 py-6">
+                <div className="w-full max-w-[720px]">
+                  <WelcomeHero
+                    onPick={(text) => chat.send(text, [], 'standard')}
+                  />
+                  <div className="mt-9">
+                    <Composer
+                      busy={chat.isGenerating}
+                      onSend={chat.send}
+                      onStop={chat.stop}
+                      variant="hero"
+                      handleRef={composerRef}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <Masthead conversation={active} />
+                <Transcript
+                  conversation={active}
+                  busy={chat.isGenerating}
+                  onRegenerate={chat.regenerate}
+                  onEditSubmit={chat.editAndResend}
+                  onRetry={chat.retry}
+                  handleRef={transcriptRef}
+                />
+                <div className="shrink-0 px-3 pb-3 md:px-4 md:pb-4">
+                  <Composer
+                    busy={chat.isGenerating}
+                    onSend={chat.send}
+                    onStop={chat.stop}
+                    handleRef={composerRef}
+                  />
+                </div>
+              </>
+            )}
+          </>
         )}
-      </div>
+      </main>
+
+      {/* ------------------------------------------------------ context card */}
+      {showPanel && active && (
+        <aside
+          id="context-panel"
+          aria-label="Chat details"
+          className="card w-[288px] shrink-0 overflow-hidden"
+        >
+          <ContextPanel
+            conversation={active}
+            onJumpTo={(id) => transcriptRef.current?.jumpTo(id)}
+          />
+        </aside>
+      )}
 
       {/* ------------------------------------------------------ mobile drawer */}
       {!isDesktop && drawerOpen && (
-        <div className="fixed inset-0 z-40 flex">
+        <div className="fixed inset-0 z-40 flex p-2.5">
           <button
             type="button"
             aria-label="Close chat list"
@@ -216,7 +240,7 @@ export default function App() {
             role="dialog"
             aria-modal="true"
             aria-label="Chat list"
-            className="relative z-10 h-full w-[84vw] max-w-[20rem] border-r border-edge-strong"
+            className="card relative z-10 h-full w-[86vw] max-w-[20rem] overflow-hidden"
             onKeyDown={(e) => {
               if (e.key !== 'Tab') return;
               const focusables = drawerRef.current?.querySelectorAll<HTMLElement>(

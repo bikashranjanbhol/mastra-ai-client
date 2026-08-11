@@ -10,7 +10,7 @@
  * tool it is meant to become. All figures in them are invented for the mock.
  */
 
-import type { Message } from '../types';
+import type { Message, ReplyMode } from '../types';
 
 export const THINKING_MS = 520;
 
@@ -283,6 +283,32 @@ const pickReply = (prompt: string): string => {
   return FALLBACK;
 };
 
+/**
+ * Reasoning mode prepends a short trace before the answer, and research mode
+ * appends a source list. Both are mock behaviours here, but they are what the
+ * corresponding tools would change about a real request, so the composer
+ * toggles drive something real rather than decorating the tray.
+ */
+const REASONING_PREFIX = `> **Working through it**
+>
+> 1. Establish what is actually being measured before comparing options.
+> 2. Separate the effects that are genuinely independent of each other.
+> 3. Check the recommendation against the cheapest case that could disprove it.
+
+`;
+
+const SOURCES_SUFFIX = `
+
+---
+
+**Sources consulted**
+
+1. Internal category performance extract, trailing 13 weeks
+2. Regional planogram compliance audit, current quarter
+3. Replenishment parameter reference, revision 8
+
+*Mock citations for the demo — a real deployment would link to the systems of record.*`;
+
 /** Splits into word-plus-trailing-whitespace pieces, the granularity a real API streams at. */
 const toChunks = (text: string): string[] => text.match(/\s*\S+|\s+/g) ?? [];
 
@@ -291,17 +317,25 @@ export interface StreamHandle {
   signal: AbortSignal;
   /** When true the stream dies mid-flight, to exercise the error + retry path. */
   injectFailure?: boolean;
+  mode?: ReplyMode;
 }
 
 export async function streamAssistantReply(
   history: Message[],
-  { onToken, signal, injectFailure }: StreamHandle,
+  { onToken, signal, injectFailure, mode = 'standard' }: StreamHandle,
 ): Promise<void> {
   const lastUser = [...history].reverse().find((m) => m.role === 'user');
-  const body = pickReply(lastUser?.content ?? '');
+  const answer = pickReply(lastUser?.content ?? '');
+  const body =
+    (mode === 'reasoning' ? REASONING_PREFIX : '') +
+    answer +
+    (mode === 'research' ? SOURCES_SUFFIX : '');
   const chunks = toChunks(body);
 
-  await sleep(THINKING_MS + Math.random() * 240, signal);
+  // Reasoning spends longer before the first token, which is the whole point
+  // of the mode from the reader's side.
+  const think = mode === 'reasoning' ? THINKING_MS * 3 : THINKING_MS;
+  await sleep(think + Math.random() * 240, signal);
 
   const failAt = injectFailure ? Math.floor(chunks.length * (0.12 + Math.random() * 0.14)) : -1;
 

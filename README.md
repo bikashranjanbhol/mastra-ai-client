@@ -19,14 +19,15 @@ and items in the sample conversations are invented for the demo.
 
 ## Before this ships — brand kit items not included here
 
-Four things are deliberately left as placeholders rather than approximated. All
-four are marked in `src/brand.ts`.
+Five things are deliberately left as placeholders rather than approximated. All
+are marked in `src/brand.ts`.
 
 | Item | Status | What to do |
 | --- | --- | --- |
 | **Bogle** | Not bundled — licensed | Named first in the font stack, so it is used wherever installed. Add the licensed web fonts to `public/fonts/` and an `@font-face` block. Fallback today is Helvetica Neue → Arial. |
 | **The Spark mark** | Placeholder | `BrandMark` draws a neutral shape. Drop the official SVG in and delete the placeholder — it should not be traced or redrawn. |
 | **Product name** | Working title | `BRAND.productName` in `src/brand.ts`. |
+| **Signed-in user** | Fixture | `demoUser` in `src/brand.ts` feeds the sidebar footer. Wire it to the real session once auth exists. |
 | **Semantic + dark tokens** | Derived here | True Blue, Spark Yellow and Bentonville Blue are the published core. Success, warning, danger and the whole dark theme were derived for contrast, not taken from the internal design system. Reconcile them. |
 
 ## Design tokens
@@ -50,9 +51,10 @@ tuned for contrast.
 **Type** — Bogle → Helvetica Neue → Arial → system-ui. Monospace is used only for
 code listings and inline code.
 **Spacing** — 4px base: 4 / 8 / 12 / 16 / 24 / 32 / 48.
-**Corners** — controls 8px, containers 12px, buttons and chips fully round.
-**Elevation** — two shadow tokens, both soft and low. Cards and code listings take
-`--shadow-raised`; only the jump-to-latest control lifts to `--shadow-pop`.
+**Corners** — controls 12px, cards 18px, buttons and chips fully round.
+**Elevation** — three soft tokens. `--shadow-card` lifts the floating panels,
+`--shadow-raised` sits under code listings and tables, `--shadow-pop` is only for
+the jump-to-latest control.
 
 ### Two contrast rules worth keeping
 
@@ -70,35 +72,45 @@ history reproduce the numbers.
 
 ## Layout
 
+Built to a supplied reference: floating rounded cards on a soft page, a centred
+welcome with an orb and greeting, and a large composer with a tool tray.
+
 ```
-┌──────────────────────────────────────────────────────────┐
-│ app bar — True Blue, full width, brand + global controls │
-├───────────┬──────────────────────────────┬───────────────┤
-│ chat list │ chat title                   │ details       │
-│ 256px     ├──────────────────────────────┤ questions ↵   │
-│           │ transcript                   │ files         │
-│           ├──────────────────────────────┤ 288px         │
-│           │ composer                     │               │
-└───────────┴──────────────────────────────┴───────────────┘
+┌ page ────────────────────────────────────────────────────────┐
+│ ┌ chat list ─┐ ┌ main card ───────────────┐ ┌ context card ┐ │
+│ │ wordmark   │ │ [model ▾]   [☾][▤][+New] │ │ details      │ │
+│ │ search ⌘K  │ │                          │ │ questions ↵  │ │
+│ │ Today      │ │   orb + greeting         │ │ files        │ │
+│ │ Yesterday  │ │   ┌ composer ─────────┐  │ │              │ │
+│ │ Prev 7 days│ │   │ ✦ prompt          │  │ │              │ │
+│ │            │ │   │ 📎 Reasoning  … ↑ │  │ │              │ │
+│ │ [user]     │ │   └───────────────────┘  │ │              │ │
+│ └────────────┘ └──────────────────────────┘ └──────────────┘ │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-Three decisions worth knowing:
+- **Welcome state** shows the orb, a time-of-day greeting, four openings and the
+  composer, with the context card hidden so nothing competes with it. Once a chat
+  has messages the transcript takes over and the composer docks to the foot.
+- **The chat list groups by recency** — Today / Yesterday / Previous 7 days — which
+  is what makes a long history scannable.
+- **The orb and the glow under the composer are decorative only.** Both are
+  `aria-hidden`, carry no state, and are built from layered radial washes rather
+  than a linear gradient, so they read as light rather than as a painted band.
 
-- **The window is used all the way across.** An earlier revision bounded the
-  transcript and left the surplus empty; that space is now the context panel, which
-  is where a 126-message review actually needs help.
-- **The brand is carried by the chrome.** A full-width blue app bar is what makes the
-  product recognisable at a glance — leaving the colour on a couple of buttons is what
-  made the earlier revision read as generic.
-- **Density is the point.** 15px body at 1.55, message rows at 12px vertical padding,
-  two-line chat rows. This is a tool someone has open all day, not a landing page.
+### The tool chips do something
 
-Message identity sits on a compact header line — a 20px speaker mark, the name, the
-time, the version — with that row's actions revealed on hover **and** on focus-within,
-so they stay in the tab order without adding permanent clutter to every row.
+`Reasoning` and `Deep Research` are wired to the request, not decoration:
+reasoning spends three times as long before the first token and prepends its
+working; research appends the sources consulted. Exactly one can be active, so the
+tray is a mode switch rather than a set of independent flags. The mode is stored on
+the reply, so regenerating a turn reuses whichever tool produced it.
 
-Breakpoints: the context panel is hidden below 1180px rather than squeezed, and below
-900px the chat list becomes a scrim drawer.
+### On the reference's accent
+
+The reference is indigo. This is built in True Blue because the brand requirement
+came first — swapping it back is one token (`--accent` in `index.css`) plus its
+dark-theme counterpart.
 
 ## Architecture
 
@@ -115,7 +127,8 @@ src/
                       per animation frame rather than once per token
   hooks/useVirtualList.ts   windowed rendering with ResizeObserver-measured heights
   hooks/useTheme.ts   system / light / dark, resolved onto <html data-theme>
-  components/TopBar.tsx        the blue app bar; where the brand lives
+  components/ChatHeader.tsx    model picker, theme, panel toggles, New Chat
+  components/WelcomeHero.tsx   orb, greeting, opening prompts
   components/ContextPanel.tsx  details, question jump-links, files
   components/         shell, transcript, composer, markdown renderer
 ```

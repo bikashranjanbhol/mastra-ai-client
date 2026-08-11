@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Attachment, Conversation, Message } from '../types';
+import type { Attachment, Conversation, Message, ReplyMode } from '../types';
+import { MODELS } from '../brand';
 import { seedConversations, uid } from '../lib/seed';
 import { StreamAbortError, streamAssistantReply } from '../lib/mockModel';
 
@@ -15,6 +16,7 @@ export function useChat() {
   const [generatingIn, setGeneratingIn] = useState<string | null>(null);
   /** One-shot: arms a simulated connection drop on the next response. */
   const [faultArmed, setFaultArmed] = useState(false);
+  const [modelId, setModelId] = useState<string>(MODELS[0].id);
 
   const abortRef = useRef<AbortController | null>(null);
   const bufferRef = useRef<{ id: string; text: string } | null>(null);
@@ -67,7 +69,7 @@ export function useChat() {
   );
 
   const runGeneration = useCallback(
-    async (convId: string, history: Message[], assistantId: string) => {
+    async (convId: string, history: Message[], assistantId: string, mode: ReplyMode) => {
       const controller = new AbortController();
       abortRef.current = controller;
       setGeneratingIn(convId);
@@ -81,6 +83,7 @@ export function useChat() {
         await streamAssistantReply(history, {
           signal: controller.signal,
           injectFailure,
+          mode,
           onToken: (chunk) => {
             const pending = bufferRef.current;
             if (pending && pending.id === assistantId) pending.text += chunk;
@@ -117,7 +120,7 @@ export function useChat() {
 
   /** Appends an empty assistant turn and starts streaming into it. */
   const startAssistantTurn = useCallback(
-    (convId: string, history: Message[], revision = 1) => {
+    (convId: string, history: Message[], mode: ReplyMode = 'standard', revision = 1) => {
       const assistant: Message = {
         id: uid('msg'),
         role: 'assistant',
@@ -125,19 +128,21 @@ export function useChat() {
         createdAt: Date.now(),
         status: 'streaming',
         revision,
+        modelId,
+        mode,
       };
       patchConversation(convId, (conv) => ({
         ...conv,
         updatedAt: Date.now(),
         messages: [...history, assistant],
       }));
-      void runGeneration(convId, history, assistant.id);
+      void runGeneration(convId, history, assistant.id, mode);
     },
-    [patchConversation, runGeneration],
+    [modelId, patchConversation, runGeneration],
   );
 
   const send = useCallback(
-    (text: string, attachments: Attachment[] = []) => {
+    (text: string, attachments: Attachment[] = [], mode: ReplyMode = 'standard') => {
       const body = text.trim();
       if (!body || generatingIn) return;
 
@@ -158,7 +163,7 @@ export function useChat() {
       if (isFirst) {
         patchConversation(conv.id, (c) => ({ ...c, title: titleFrom(body) }));
       }
-      startAssistantTurn(conv.id, history);
+      startAssistantTurn(conv.id, history, mode);
     },
     [activeId, conversations, generatingIn, patchConversation, startAssistantTurn],
   );
@@ -176,7 +181,13 @@ export function useChat() {
       const index = conv.messages.findIndex((m) => m.id === messageId);
       if (index < 1) return;
       const previous = conv.messages[index];
-      startAssistantTurn(conv.id, conv.messages.slice(0, index), (previous.revision ?? 1) + 1);
+      // Regenerating keeps whichever tool produced the original turn.
+      startAssistantTurn(
+        conv.id,
+        conv.messages.slice(0, index),
+        previous.mode ?? 'standard',
+        (previous.revision ?? 1) + 1,
+      );
     },
     [activeId, conversations, generatingIn, startAssistantTurn],
   );
@@ -199,7 +210,7 @@ export function useChat() {
         revision: (conv.messages[index].revision ?? 1) + 1,
       };
       const history = [...conv.messages.slice(0, index), edited];
-      startAssistantTurn(conv.id, history);
+      startAssistantTurn(conv.id, history, conv.messages[index + 1]?.mode ?? 'standard');
     },
     [activeId, conversations, generatingIn, startAssistantTurn],
   );
@@ -272,5 +283,7 @@ export function useChat() {
     deleteConversation,
     faultArmed,
     setFaultArmed,
+    modelId,
+    setModelId,
   };
 }

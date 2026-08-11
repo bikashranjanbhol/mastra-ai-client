@@ -26,11 +26,12 @@
   --spark-yellow: #ffc220;
   --bentonville-blue: #041e42;
 
-  /* Surfaces */
-  --surface: #eef2f7; /* desk */
-  --raised: #ffffff; /* sheet, cards */
-  --line: #d9e0e8;
-  --line-strong: #aab6c4;
+  /* Surfaces. `page` is the soft ground the cards float on; `raised` is a card. */
+  --page: #f4f6f9;
+  --surface: #fbfcfd;
+  --raised: #ffffff;
+  --line: #e7ebf0;
+  --line-strong: #c3ccd8;
 
   /* Text */
   --ink: #041e42;
@@ -68,13 +69,16 @@
 
   --shadow-raised: 0 1px 2px #041e420f, 0 4px 12px #041e420a;
   --shadow-pop: 0 2px 6px #041e4218, 0 12px 28px #041e4214;
+  /* The lift under a floating card. */
+  --shadow-card: 0 1px 1px #041e420a, 0 8px 24px -8px #041e421f;
 }
 
 [data-theme='dark'] {
-  --surface: #01152e;
-  --raised: #041e42; /* Bentonville Blue carries the sheet in dark */
-  --line: #1b3c6b;
-  --line-strong: #35618f;
+  --page: #010c1c;
+  --surface: #04172f;
+  --raised: #061e3d; /* Bentonville-adjacent; carries the cards in dark */
+  --line: #14355f;
+  --line-strong: #2d5b8e;
 
   --ink: #e9f1fa;
   --ink-muted: #a2b6cd;
@@ -105,9 +109,11 @@
 
   --shadow-raised: 0 1px 2px #00000040, 0 4px 12px #00000030;
   --shadow-pop: 0 2px 6px #00000059, 0 12px 28px #00000047;
+  --shadow-card: 0 1px 1px #00000040, 0 8px 24px -8px #00000066;
 }
 
 @theme inline {
+  --color-page: var(--page);
   --color-surface: var(--surface);
   --color-raised: var(--raised);
   --color-edge: var(--line);
@@ -139,13 +145,14 @@
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas,
     'Liberation Mono', monospace;
 
-  /* Corner rule: controls 8px, containers 12px, buttons and chips fully round. */
-  --radius-ctl: 8px;
-  --radius-card: 12px;
+  /* Corner rule: controls 12px, cards 18px, buttons and chips fully round. */
+  --radius-ctl: 12px;
+  --radius-card: 18px;
   --radius-pill: 9999px;
 
   --shadow-raised: var(--shadow-raised);
   --shadow-pop: var(--shadow-pop);
+  --shadow-card: var(--shadow-card);
 }
 
 @layer base {
@@ -156,7 +163,7 @@
   }
 
   body {
-    background-color: var(--surface);
+    background-color: var(--page);
     color: var(--ink);
     font-family: var(--font-display);
     font-size: 15px;
@@ -302,6 +309,118 @@
   }
   .btn-danger:hover:not(:disabled) {
     filter: brightness(0.94);
+  }
+
+  /* A floating panel: the shell is built from these, separated by page ground. */
+  .card {
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* A tool toggle in the composer tray. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--line);
+    background: var(--raised);
+    padding: 0.3125rem 0.75rem;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    transition:
+      background-color 140ms ease,
+      border-color 140ms ease,
+      color 140ms ease;
+  }
+  .chip:hover:not(:disabled) {
+    border-color: var(--line-strong);
+    color: var(--ink);
+  }
+  .chip[aria-pressed='true'] {
+    border-color: var(--accent);
+    background: var(--wash-accent);
+    color: var(--accent-text);
+  }
+  .chip:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /*
+   * The soft aurora under the composer. Built from three offset radial washes
+   * rather than a single linear gradient, so it reads as light spilling from
+   * behind the card instead of a painted band. Purely decorative: it sits
+   * behind the card, is aria-hidden, and carries no state.
+   */
+  .aurora {
+    position: absolute;
+    inset: -10% -4% -30% -4%;
+    z-index: -1;
+    pointer-events: none;
+    filter: blur(38px);
+    opacity: 0.55;
+    background:
+      radial-gradient(34% 56% at 16% 68%, color-mix(in srgb, var(--accent) 48%, transparent), transparent 70%),
+      radial-gradient(30% 50% at 50% 86%, color-mix(in srgb, var(--highlight) 26%, transparent), transparent 72%),
+      radial-gradient(36% 56% at 86% 66%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 70%);
+  }
+
+  /*
+   * The welcome orb. A sphere lit from the upper left, built from three layers:
+   * a blurred copy behind it for the diffuse edge, the body gradient, and a
+   * wide warm halo. Decorative and aria-hidden.
+   */
+  .orb {
+    position: relative;
+    width: 112px;
+    height: 112px;
+    border-radius: 9999px;
+    background:
+      radial-gradient(
+        circle at 31% 25%,
+        #ffffff 0%,
+        #ffffff 9%,
+        color-mix(in srgb, var(--accent) 16%, #ffffff) 30%,
+        color-mix(in srgb, var(--accent) 58%, #ffffff) 58%,
+        var(--accent) 86%,
+        color-mix(in srgb, var(--accent) 82%, #041e42) 100%
+      );
+    box-shadow:
+      0 22px 46px -16px color-mix(in srgb, var(--accent) 60%, transparent),
+      inset -10px -14px 30px color-mix(in srgb, var(--accent) 45%, transparent);
+  }
+
+  /* Diffuse edge: a blurred, slightly larger copy sitting behind the body. */
+  .orb::before {
+    content: '';
+    position: absolute;
+    inset: -7%;
+    border-radius: 9999px;
+    z-index: -1;
+    filter: blur(11px);
+    opacity: 0.75;
+    background: inherit;
+  }
+
+  /* Warm halo, so the sphere sits in light rather than on a flat field. */
+  .orb::after {
+    content: '';
+    position: absolute;
+    inset: -46%;
+    border-radius: 9999px;
+    z-index: -2;
+    filter: blur(34px);
+    opacity: 0.42;
+    background: radial-gradient(
+      circle at 52% 58%,
+      color-mix(in srgb, var(--highlight) 40%, transparent),
+      color-mix(in srgb, var(--accent) 22%, transparent) 55%,
+      transparent 72%
+    );
   }
 
   /* The caret that trails streaming text. */
