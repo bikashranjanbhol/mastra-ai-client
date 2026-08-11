@@ -2,6 +2,8 @@ import { useMemo, useState, type RefObject } from 'react';
 import { Check, Pencil, Plus, Search, Trash2, X, Zap } from 'lucide-react';
 import type { Conversation } from '../types';
 import { plural, relativeDay } from '../lib/format';
+import { BrandMark } from './BrandMark';
+import { BRAND } from '../brand';
 
 interface Props {
   conversations: Conversation[];
@@ -15,10 +17,7 @@ interface Props {
   onToggleFault: () => void;
 }
 
-/**
- * The index: a card catalogue down the left edge. Titles are set in the reading
- * serif, everything else is monospace apparatus.
- */
+/** The chat list down the left edge, with search, rename and delete. */
 export function Sidebar({
   conversations,
   activeId,
@@ -52,16 +51,25 @@ export function Sidebar({
 
   return (
     <div className="flex h-full flex-col bg-surface">
-      <div className="flex items-center justify-between gap-2 border-b border-edge px-4 py-3">
-        <h1 className="font-mono text-[12px] uppercase tracking-[0.22em] text-ink">Marginalia</h1>
+      <div className="border-b border-edge px-4 py-3">
+        <div className="flex items-center gap-2.5">
+          <BrandMark size={30} />
+          <div className="min-w-0">
+            <h1 className="truncate text-[15px] font-bold leading-tight text-ink">
+              {BRAND.productName}
+            </h1>
+            <p className="truncate meta text-muted">{BRAND.descriptor}</p>
+          </div>
+        </div>
+
         <button
           type="button"
           onClick={onNew}
-          title="New entry (⌘⇧O)"
-          className="flex items-center gap-1.5 rounded-ctl border border-edge px-2 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted transition-colors hover:border-accent hover:bg-hover hover:text-ink"
+          title="New chat (⌘⇧O)"
+          className="btn btn-primary mt-3 w-full justify-center"
         >
-          <Plus aria-hidden="true" size={12} strokeWidth={2} />
-          New
+          <Plus aria-hidden="true" size={15} strokeWidth={2.25} />
+          New chat
         </button>
       </div>
 
@@ -73,7 +81,7 @@ export function Sidebar({
           className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
         />
         <label htmlFor="index-search" className="sr-only-text">
-          Search entries
+          Search chats
         </label>
         <input
           id="index-search"
@@ -83,15 +91,15 @@ export function Sidebar({
           onKeyDown={(e) => {
             if (e.key === 'Escape') setQuery('');
           }}
-          placeholder="Search titles and text  ⌘K"
-          className="w-full bg-transparent py-2.5 pl-10 pr-4 font-mono text-[12px] text-ink outline-none placeholder:text-muted focus-visible:bg-hover"
+          placeholder="Search chats  ⌘K"
+          className="w-full bg-transparent py-2.5 pl-10 pr-4 meta text-ink outline-none placeholder:text-muted focus-visible:bg-hover"
         />
       </div>
 
-      <nav aria-label="Conversation index" className="min-h-0 flex-1 overflow-y-auto">
+      <nav aria-label="Chat list" className="min-h-0 flex-1 overflow-y-auto">
         {results.length === 0 ? (
-          <p className="px-4 py-6 font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
-            no entries match “{query}”
+          <p className="px-4 py-6 label text-muted">
+            No chats match “{query}”
           </p>
         ) : (
           <ul>
@@ -122,7 +130,7 @@ export function Sidebar({
                       <button
                         type="button"
                         onClick={() => commitRename(conv.id)}
-                        className="rounded-ctl p-1 text-success transition-colors hover:bg-hover"
+                        className="rounded-pill p-1 text-success transition-colors hover:bg-hover"
                       >
                         <Check aria-hidden="true" size={14} strokeWidth={2} />
                         <span className="sr-only-text">Save title</span>
@@ -130,7 +138,7 @@ export function Sidebar({
                       <button
                         type="button"
                         onClick={() => setRenaming(null)}
-                        className="rounded-ctl p-1 text-muted transition-colors hover:bg-hover"
+                        className="rounded-pill p-1 text-muted transition-colors hover:bg-hover"
                       >
                         <X aria-hidden="true" size={14} strokeWidth={2} />
                         <span className="sr-only-text">Cancel rename</span>
@@ -155,30 +163,29 @@ export function Sidebar({
                         >
                           {conv.title}
                         </span>
-                        <span className="mt-1 block font-mono text-[11px] tracking-[0.06em] text-muted">
-                          {relativeDay(conv.updatedAt)} · {plural(conv.messages.length, 'turn')}
+                        <span className="mt-1 block meta text-muted">
+                          {relativeDay(conv.updatedAt)} · {plural(conv.messages.length, 'message')}
                         </span>
                       </button>
 
                       {confirming === conv.id ? (
                         <div className="flex items-center gap-1 py-3">
-                          <span className="font-mono text-[11px] text-danger">delete?</span>
                           <button
                             type="button"
                             onClick={() => {
                               onDelete(conv.id);
                               setConfirming(null);
                             }}
-                            className="rounded-ctl px-1.5 py-0.5 font-mono text-[11px] uppercase text-danger transition-colors hover:bg-hover"
+                            className="rounded-pill px-2.5 py-1 text-[12px] font-bold text-danger transition-colors hover:bg-hover"
                           >
-                            yes
+                            Delete
                           </button>
                           <button
                             type="button"
                             onClick={() => setConfirming(null)}
-                            className="rounded-ctl px-1.5 py-0.5 font-mono text-[11px] uppercase text-muted transition-colors hover:bg-hover"
+                            className="rounded-pill px-2.5 py-1 text-[12px] font-bold text-muted transition-colors hover:bg-hover"
                           >
-                            no
+                            Cancel
                           </button>
                         </div>
                       ) : (
@@ -189,7 +196,7 @@ export function Sidebar({
                               setDraft(conv.title);
                               setRenaming(conv.id);
                             }}
-                            className="rounded-ctl p-1 text-muted transition-colors hover:bg-hover hover:text-ink"
+                            className="rounded-pill p-1 text-muted transition-colors hover:bg-hover hover:text-ink"
                           >
                             <Pencil aria-hidden="true" size={13} strokeWidth={1.75} />
                             <span className="sr-only-text">Rename {conv.title}</span>
@@ -197,7 +204,7 @@ export function Sidebar({
                           <button
                             type="button"
                             onClick={() => setConfirming(conv.id)}
-                            className="rounded-ctl p-1 text-muted transition-colors hover:bg-hover hover:text-danger"
+                            className="rounded-pill p-1 text-muted transition-colors hover:bg-hover hover:text-danger"
                           >
                             <Trash2 aria-hidden="true" size={13} strokeWidth={1.75} />
                             <span className="sr-only-text">Delete {conv.title}</span>
@@ -218,14 +225,10 @@ export function Sidebar({
           type="button"
           onClick={onToggleFault}
           aria-pressed={faultArmed}
-          className={`flex w-full items-center gap-2 rounded-ctl border px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors ${
-            faultArmed
-              ? 'border-danger text-danger'
-              : 'border-edge text-muted hover:bg-hover hover:text-ink'
-          }`}
+          className={`btn w-full justify-center ${faultArmed ? 'btn-danger' : 'btn-quiet'}`}
         >
-          <Zap aria-hidden="true" size={12} strokeWidth={1.75} />
-          {faultArmed ? 'fault armed — next reply drops' : 'simulate dropped connection'}
+          <Zap aria-hidden="true" size={13} strokeWidth={2} />
+          {faultArmed ? 'Fault armed — next reply drops' : 'Simulate dropped connection'}
         </button>
       </div>
     </div>

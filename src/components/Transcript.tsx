@@ -135,8 +135,8 @@ export function Transcript({
 
         {count > 0 && (
           <div className="border-t border-edge px-5 py-6 min-[900px]:px-8">
-            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted">
-              — end of entry · {plural(count, 'turn')}
+            <p className="label text-muted">
+              End of conversation · {plural(count, 'message')}
               {virtualized && ' · windowed'}
             </p>
           </div>
@@ -153,9 +153,9 @@ export function Transcript({
         <button
           type="button"
           onClick={() => scrollToLatest()}
-          className="absolute bottom-4 right-5 flex items-center gap-2 rounded-ctl border border-edge-strong bg-raised px-3 py-2 font-mono text-[11px] uppercase tracking-[0.14em] text-ink transition-colors hover:bg-hover min-[900px]:right-8"
+          className="btn absolute bottom-4 right-5 border border-edge bg-raised text-ink shadow-pop hover:bg-hover min-[900px]:right-8"
         >
-          <ArrowDown aria-hidden="true" size={13} strokeWidth={1.75} className="text-accent" />
+          <ArrowDown aria-hidden="true" size={14} strokeWidth={2.25} className="text-accent" />
           Jump to latest
         </button>
       )}

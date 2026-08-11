@@ -230,7 +230,8 @@ export function parseBlocks(src: string): Block[] {
       ) {
         break;
       }
-      para.push(l.trim());
+      // Leading indentation goes; trailing spaces stay so a hard break survives.
+      para.push(l.replace(/^[ \t]+/, ''));
       i += 1;
     }
     blocks.push({ type: 'paragraph', text: para.join('\n') });
@@ -290,7 +291,10 @@ const RULES: Rule[] = [
     build: (m) => ({ type: 'em', children: parseInline(m[1]) }),
   },
   {
-    re: /(?<=\S)\n/,
+    // Hard break only. A bare newline is a soft break and is left in the text
+    // node for CSS to collapse — which keeps user messages, rendered with
+    // `white-space: pre-wrap`, faithful to what was typed.
+    re: /(?:[ \t]{2,}|\\)\n/,
     build: () => ({ type: 'break' }),
   },
 ];

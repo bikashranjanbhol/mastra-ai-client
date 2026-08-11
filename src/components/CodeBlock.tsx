@@ -10,10 +10,7 @@ interface Props {
   open?: boolean;
 }
 
-/**
- * A code listing, set like one in a printed manual: ruled header, numbered
- * lines, no rounded corners, no shadow.
- */
+/** A code listing: labelled header, numbered lines, copy control. */
 export const CodeBlock = memo(function CodeBlock({ code, lang, open }: Props) {
   const { copied, copy } = useCopy();
 
@@ -35,23 +32,23 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, open }: Props) {
   const gutterWidth = `${String(highlighted.length).length + 1}ch`;
 
   return (
-    <figure className="my-6 border border-edge bg-raised">
-      <figcaption className="flex items-center justify-between gap-4 border-b border-edge px-3 py-1.5">
-        <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-muted">
+    <figure className="my-6 overflow-hidden rounded-card border border-edge bg-surface shadow-raised">
+      <figcaption className="flex items-center justify-between gap-4 border-b border-edge bg-raised px-3 py-2">
+        <span className="label text-muted">
           {languageLabel(lang)}
-          {open && <span className="ml-2 text-accent">· writing</span>}
+          {open && <span className="ml-2 text-accent-text">· writing</span>}
         </span>
         <button
           type="button"
           onClick={() => void copy(code)}
-          className="flex items-center gap-1.5 rounded-ctl px-2 py-1 font-mono text-[11px] uppercase tracking-[0.14em] text-muted transition-colors hover:bg-hover hover:text-ink"
+          className="flex items-center gap-1.5 rounded-pill px-2.5 py-1 label text-muted transition-colors hover:bg-hover hover:text-ink"
         >
           {copied ? (
             <Check aria-hidden="true" size={13} strokeWidth={2} className="text-success" />
           ) : (
             <Copy aria-hidden="true" size={13} strokeWidth={1.75} />
           )}
-          {copied ? 'copied' : 'copy'}
+          {copied ? 'Copied' : 'Copy'}
           <span className="sr-only-text">
             {copied ? 'Code copied to clipboard' : `Copy ${languageLabel(lang)} code block`}
           </span>

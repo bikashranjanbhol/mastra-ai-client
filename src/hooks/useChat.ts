@@ -5,7 +5,7 @@ import { StreamAbortError, streamAssistantReply } from '../lib/mockModel';
 
 const titleFrom = (text: string): string => {
   const line = text.trim().split('\n')[0].replace(/[#*`>_]/g, '').trim();
-  if (!line) return 'Untitled entry';
+  if (!line) return 'New chat';
   return line.length > 52 ? `${line.slice(0, 51).trimEnd()}…` : line;
 };
 
@@ -207,7 +207,7 @@ export function useChat() {
   const newConversation = useCallback(() => {
     const conv: Conversation = {
       id: uid('conv'),
-      title: 'Untitled entry',
+      title: 'New chat',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       messages: [],
@@ -236,7 +236,7 @@ export function useChat() {
           } else {
             const blank: Conversation = {
               id: uid('conv'),
-              title: 'Untitled entry',
+              title: 'New chat',
               createdAt: Date.now(),
               updatedAt: Date.now(),
               messages: [],

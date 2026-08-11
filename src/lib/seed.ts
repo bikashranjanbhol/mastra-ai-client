@@ -1,5 +1,13 @@
 import type { Conversation, Message } from '../types';
 
+/**
+ * Sample conversations for the demo.
+ *
+ * Scenarios are retail-operations shaped so the interface can be reviewed in
+ * something close to its real context. Every figure, store number and item
+ * below is invented for the mock — none of it is real operating data.
+ */
+
 let counter = 0;
 export const uid = (prefix = 'id'): string => {
   counter += 1;
@@ -26,279 +34,244 @@ const turn = (
   ...extra,
 });
 
-/* ------------------------------------------------ 1. retrieval, with a table */
+/* ------------------------------------------------ 1. markdown plan, with a table */
 
-const retrievalStart = now - 2 * HOUR;
+const markdownStart = now - 2 * HOUR;
 
-const retrieval: Conversation = {
+const markdownPlan: Conversation = {
   id: uid('conv'),
-  title: 'Chunking a 400-page corpus',
-  createdAt: retrievalStart,
-  updatedAt: retrievalStart + 14 * MINUTE,
+  title: 'Q3 markdown cadence — seasonal apparel',
+  createdAt: markdownStart,
+  updatedAt: markdownStart + 14 * MINUTE,
   messages: [
     turn(
       'user',
-      "I have ~400 pages of scanned municipal reports, OCR'd, lots of tables. I need retrieval over them. What chunking strategy should I use?",
-      retrievalStart,
+      'I need to set the markdown cadence for seasonal apparel going into Q3. Single deep cut or a stepped schedule? Last season we cleared late and ate the margin.',
+      markdownStart,
       {
         attachments: [
-          { id: uid('att'), name: 'city-reports-1998-2024.pdf', size: 41_582_336, kind: 'other' },
+          { id: uid('att'), name: 'q2-sellthrough-by-dept.csv', size: 284_112, kind: 'data' },
         ],
       },
     ),
     turn(
       'assistant',
-      `Scanned + tabular is the hard case, so the usual advice ("512 tokens, 50 overlap") will underperform badly here. Let me separate the two problems.
+      `Stepped, and trigger it on rate of sale rather than on the calendar. Clearing late is usually a trigger problem, not a depth problem.
 
-### The measurements
+### Cadence comparison, seasonal apparel
 
-I ran the four common strategies against a similar corpus last year. Recall@5 on a 50-question eval set:
-
-| Strategy | Chunk size | Recall on prose | Recall on tables | Index cost |
+| Cadence | First cut | Weeks to clear | Sell-through | Margin retained |
 | --- | ---: | ---: | ---: | ---: |
-| Fixed window | 512 tok | 0.61 | 0.24 | 1.0× |
-| Sentence-aware | ~400 tok | 0.74 | 0.31 | 1.0× |
-| Recursive structural | 300–900 tok | **0.83** | 0.58 | 1.4× |
-| Section + summary head | 300–900 tok | 0.81 | **0.79** | 2.8× |
+| Single deep cut | −40% | 3.1 | 91% | 54% |
+| Two-step | −20/−40% | 4.4 | 93% | **63%** |
+| Three-step | −15/−30/−50% | 6.8 | 95% | 61% |
+| Hold to season end | −50% | 8.2 | 88% | 49% |
 
-The gap in the *tables* column is the whole story. A table cut in half loses its header row, and a table body without headers is close to unretrievable — the numbers no longer have names attached to them.
+Two things stand out. The two-step retains nine points more margin than the single
+cut for about nine extra days on the floor. And the three-step buys two more points
+of sell-through for another two and a half weeks of shelf space — which is the cost
+that never shows up in a markdown table.
 
-### What I'd actually do
+### What I'd do
 
-1. **Extract tables before chunking.** Serialise each one to markdown, keep the caption and the preceding heading, and store it as a single atomic chunk regardless of length.
-2. **Chunk the remaining prose on structure** — section, then paragraph, then sentence — taking the deepest boundary that fits your budget.
-3. **Prepend the heading path** to every chunk. \`1998 Annual Report › Section 4 › Water Utility\` costs you twelve tokens and buys a great deal of disambiguation across 26 years of near-identical documents.
-4. **Keep OCR confidence as metadata** so you can filter out the garbage pages instead of letting them pollute the neighbourhood.
+1. **Trigger on rate of sale.** Cut when a week's units fall below 60% of the
+   four-week trailing average, rather than on a fixed date.
+2. **Hold the second step for regional variance.** Warm-weather regions clear on the
+   first cut; the second step is really a Northeast and Midwest instrument.
+3. **Exclude the top decile.** Items clearing on their own should not be in the event
+   — that is margin given up for demand you already have.
 
-> Do step 1 before you tune anything else. On a table-heavy corpus it is worth more than every other adjustment combined.`,
-      retrievalStart + 3 * MINUTE,
+> Watch the space, not just the ledger. Six extra weeks of clearance on an endcap
+> costs more in forgone new-season sell-through than the markdown points you saved.`,
+      markdownStart + 3 * MINUTE,
     ),
     turn(
       'user',
-      'The heading path idea is interesting. Does that hurt embedding quality by adding boilerplate?',
-      retrievalStart + 9 * MINUTE,
+      'The rate-of-sale trigger is interesting. Does a 60% threshold fire too early on items with lumpy weekly demand?',
+      markdownStart + 9 * MINUTE,
     ),
     turn(
       'assistant',
-      `A little, and it's worth it — but there's a way to get most of the benefit without the cost.
+      `Yes, on low-velocity items it will — and that is where most of the false triggers come from.
 
-Prepended headings do drag chunks from the same section toward each other in embedding space, which slightly flattens *within-section* ranking. In practice that mattered for about 4% of queries in my eval, and the disambiguation gain was much larger than that.
+A four-week trailing average on an item selling three units a week has enormous
+relative variance; one slow week drops you under the threshold with no signal behind
+it. Two adjustments handle it:
 
-If you want both: **embed without the heading, retrieve, then attach the heading when you assemble the context.** The heading path matters to the model reading the chunk, not to the vector index. Two lines of code, no downside.
+- **Require two consecutive weeks below threshold** before the cut. Costs you a week
+  of latency and removes most single-week noise.
+- **Set a velocity floor for the rule.** Below roughly ten units a week, the trigger
+  is not measuring anything — put those items on the calendar schedule and leave the
+  rate-of-sale rule to items with enough volume to have a rate.
 
-The one exception is when queries name a section explicitly ("what did the *water utility* section say"). If that's a common pattern in your traffic, keep the heading in the embedding and accept the flattening.`,
-      retrievalStart + 11 * MINUTE,
+For high-velocity items the opposite risk applies: 60% can fire *late*, because a
+strong item falling to 60% is already a real collapse in demand. Consider 70% there.`,
+      markdownStart + 11 * MINUTE,
     ),
   ],
 };
 
-/* -------------------------------------------- 2. streaming parser, long code */
+/* -------------------------------------------- 2. integration work, long code block */
 
-const parserStart = now - 26 * HOUR;
+const apiStart = now - 26 * HOUR;
 
-const parser: Conversation = {
+const apiWork: Conversation = {
   id: uid('conv'),
-  title: 'SSE decoder that survives split packets',
-  createdAt: parserStart,
-  updatedAt: parserStart + 21 * MINUTE,
+  title: 'Retry policy for the availability service',
+  createdAt: apiStart,
+  updatedAt: apiStart + 21 * MINUTE,
   messages: [
     turn(
       'user',
-      "My SSE client drops characters under load and occasionally renders a replacement glyph. It works fine locally. What's wrong?",
-      parserStart,
+      'Our client for the item-availability service hammers it when it degrades — we see retry spikes right on the hour and the service takes longer to recover. What should the retry policy actually look like?',
+      apiStart,
     ),
     turn(
       'assistant',
-      `Both symptoms point at the same root cause: you're treating network chunks as if they respected message boundaries. They don't. Under load the packets get smaller and the assumption breaks.
+      `The spikes on the hour are the tell: your retries are synchronised. Every caller backs off by the same deterministic amount, so they all come back at the same instant and re-flatten the service you are waiting on.
 
-Specifically, a single \`ReadableStream\` chunk can end:
-
-- mid-line,
-- mid-event (between \`data:\` lines of the same event),
-- and mid-UTF-8-codepoint — which is exactly where your \`�\` comes from.
-
-Here's a decoder that handles all three. The buffer is the entire trick:
+The fix is full jitter plus a budget. Here is the shape I would ship:
 
 \`\`\`typescript
-type Frame =
-  | { kind: 'delta'; text: string }
-  | { kind: 'done'; reason: 'stop' | 'length' }
-  | { kind: 'error'; message: string };
-
-interface RawEvent {
-  event: string;
-  data: string;
-  id?: string;
-  retry?: number;
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'HttpError';
+  }
 }
+
+interface RetryPolicy {
+  maxAttempts: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  /** Total wall-clock budget across all attempts, including the waits. */
+  deadlineMs: number;
+  /** Statuses worth retrying. 429 and 5xx yes; 4xx client errors no. */
+  retryableStatuses: ReadonlySet<number>;
+}
+
+const DEFAULT_POLICY: RetryPolicy = {
+  maxAttempts: 4,
+  baseDelayMs: 200,
+  maxDelayMs: 8_000,
+  deadlineMs: 20_000,
+  retryableStatuses: new Set([408, 425, 429, 500, 502, 503, 504]),
+};
 
 /**
- * Incremental server-sent-event decoder.
- *
- * Feed it bytes as they arrive; it emits whole events only. Nothing is assumed
- * about where chunk boundaries fall, which is the property that makes it
- * correct under packet fragmentation.
+ * Full jitter: a uniform random point in [0, capped], not capped ± noise.
+ * Equal jitter still leaves a floor that keeps callers loosely in step, which
+ * is what produces the synchronised spikes.
  */
-export class EventDecoder {
-  private buffer = '';
-  private lastEventId: string | undefined;
-  private readonly decoder = new TextDecoder('utf-8', { fatal: false });
+function backoffDelay(attempt: number, policy: RetryPolicy): number {
+  const capped = Math.min(policy.maxDelayMs, policy.baseDelayMs * 2 ** attempt);
+  return Math.random() * capped;
+}
 
-  push(bytes: Uint8Array): Frame[] {
-    // { stream: true } holds an incomplete codepoint back until the rest of it
-    // arrives, instead of emitting U+FFFD. This is the replacement-glyph fix.
-    this.buffer += this.decoder.decode(bytes, { stream: true });
+/** Retry-After is either delta-seconds or an HTTP date. Both appear in the wild. */
+function parseRetryAfter(header: string | null): number | undefined {
+  if (!header) return undefined;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1_000);
+  const when = Date.parse(header);
+  return Number.isNaN(when) ? undefined : Math.max(0, when - Date.now());
+}
 
-    const frames: Frame[] = [];
+function sleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const id = setTimeout(resolve, ms);
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(id);
+        reject(signal.reason);
+      },
+      { once: true },
+    );
+  });
+}
 
-    for (;;) {
-      const boundary = this.findBoundary();
-      if (boundary === -1) break;
+export async function callWithRetry<T>(
+  request: (signal: AbortSignal) => Promise<Response>,
+  parse: (res: Response) => Promise<T>,
+  signal: AbortSignal,
+  policy: RetryPolicy = DEFAULT_POLICY,
+): Promise<T> {
+  const startedAt = Date.now();
+  let lastError: unknown;
 
-      const block = this.buffer.slice(0, boundary.start);
-      this.buffer = this.buffer.slice(boundary.end);
-
-      const raw = this.parseBlock(block);
-      if (raw) {
-        const frame = this.toFrame(raw);
-        if (frame) frames.push(frame);
-      }
-    }
-
-    return frames;
-  }
-
-  /** Events are separated by a blank line, in any newline convention. */
-  private findBoundary(): { start: number; end: number } | -1 {
-    const match = /\\r\\n\\r\\n|\\n\\n|\\r\\r/.exec(this.buffer);
-    if (!match) return -1;
-    return { start: match.index, end: match.index + match[0].length };
-  }
-
-  private parseBlock(block: string): RawEvent | null {
-    const raw: RawEvent = { event: 'message', data: '' };
-    const dataLines: string[] = [];
-
-    for (const line of block.split(/\\r\\n|\\n|\\r/)) {
-      if (!line || line.startsWith(':')) continue; // comment / keep-alive
-
-      const colon = line.indexOf(':');
-      const field = colon === -1 ? line : line.slice(0, colon);
-      let value = colon === -1 ? '' : line.slice(colon + 1);
-      if (value.startsWith(' ')) value = value.slice(1);
-
-      switch (field) {
-        case 'event':
-          raw.event = value;
-          break;
-        case 'data':
-          dataLines.push(value);
-          break;
-        case 'id':
-          if (!value.includes('\\0')) raw.id = value;
-          break;
-        case 'retry': {
-          const ms = Number(value);
-          if (Number.isInteger(ms)) raw.retry = ms;
-          break;
-        }
-        default:
-          break; // unknown fields are ignored by spec
-      }
-    }
-
-    if (!dataLines.length) return null;
-    raw.data = dataLines.join('\\n');
-    if (raw.id) this.lastEventId = raw.id;
-    return raw;
-  }
-
-  private toFrame(raw: RawEvent): Frame | null {
-    if (raw.data === '[DONE]') return { kind: 'done', reason: 'stop' };
+  for (let attempt = 0; attempt < policy.maxAttempts; attempt += 1) {
+    const elapsed = Date.now() - startedAt;
+    if (elapsed >= policy.deadlineMs) break;
 
     try {
-      const parsed = JSON.parse(raw.data) as {
-        delta?: { text?: string };
-        stop_reason?: 'stop' | 'length';
-        error?: { message: string };
-      };
+      const res = await request(signal);
+      if (res.ok) return await parse(res);
 
-      if (parsed.error) return { kind: 'error', message: parsed.error.message };
-      if (parsed.delta?.text) return { kind: 'delta', text: parsed.delta.text };
-      if (parsed.stop_reason) return { kind: 'done', reason: parsed.stop_reason };
-      return null;
-    } catch {
-      // One malformed event must not take down the connection.
-      return null;
+      if (!policy.retryableStatuses.has(res.status)) {
+        // A 400 will fail identically every time. Fail fast and loudly.
+        throw new HttpError(res.status, await res.text());
+      }
+
+      lastError = new HttpError(res.status, 'retryable');
+
+      // Honour the server's own guidance whenever it gives any.
+      const retryAfter = parseRetryAfter(res.headers.get('retry-after'));
+      const delay = retryAfter ?? backoffDelay(attempt, policy);
+      const remaining = policy.deadlineMs - (Date.now() - startedAt);
+      if (delay >= remaining) break;
+
+      await sleep(delay, signal);
+    } catch (err) {
+      if (err instanceof HttpError && !policy.retryableStatuses.has(err.status)) throw err;
+      if (signal.aborted) throw err;
+
+      lastError = err;
+      const delay = backoffDelay(attempt, policy);
+      const remaining = policy.deadlineMs - (Date.now() - startedAt);
+      if (delay >= remaining) break;
+
+      await sleep(delay, signal);
     }
   }
 
-  /** Header value for resuming after a drop. */
-  get resumeToken(): string | undefined {
-    return this.lastEventId;
-  }
-
-  /** Call when the socket closes; surfaces a trailing event with no blank line after it. */
-  flush(): Frame[] {
-    if (!this.buffer.trim()) {
-      this.buffer = '';
-      return [];
-    }
-    const raw = this.parseBlock(this.buffer);
-    this.buffer = '';
-    if (!raw) return [];
-    const frame = this.toFrame(raw);
-    return frame ? [frame] : [];
-  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('availability request failed after retries');
 }
 \`\`\`
 
-And the read loop, which is where people usually reintroduce the bug:
+Three things that matter as much as the loop itself:
 
-\`\`\`typescript
-export async function* readEvents(
-  response: Response,
-  signal: AbortSignal,
-): AsyncGenerator<Frame> {
-  const body = response.body;
-  if (!body) throw new Error('response has no body');
-
-  const reader = body.getReader();
-  const decoder = new EventDecoder();
-
-  signal.addEventListener('abort', () => void reader.cancel(), { once: true });
-
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      for (const frame of decoder.push(value)) yield frame;
-    }
-    for (const frame of decoder.flush()) yield frame;
-  } finally {
-    reader.releaseLock();
-  }
-}
-\`\`\`
-
-### The test that would have caught this
-
-Take a recorded response and feed it to the decoder **one byte at a time**, then feed it whole, and assert the two outputs are identical. That single property test covers every fragmentation case you'll see in production, including the multi-byte codepoint split.`,
-      parserStart + 4 * MINUTE,
+- **Idempotency keys** on anything retried that writes. Without them a retried
+  \`POST\` can double-post, and the retry becomes the incident.
+- **The total deadline**, which the code above enforces. Four attempts at up to
+  eight seconds each is potentially half a minute; whoever called you has already
+  given up by then.
+- **A retry budget** — cap retries at a small percentage of total requests. Without
+  one, a partial outage turns your own traffic into the load keeping it down.`,
+      apiStart + 4 * MINUTE,
     ),
     turn(
       'user',
-      'Why `for (;;)` instead of `while (true)`? Style, or is there a reason?',
-      parserStart + 18 * MINUTE,
+      'Why `2 ** attempt` rather than a lookup table of delays? Style, or is there a reason?',
+      apiStart + 18 * MINUTE,
     ),
     turn(
       'assistant',
-      `Style, mostly — but with one practical edge.
+      `Mostly style — but the exponent has one practical advantage.
 
-\`while (true)\` trips \`no-constant-condition\` in default ESLint configs, so codebases either disable the rule or write \`for (;;)\`, which is explicitly exempted. TypeScript treats them identically for narrowing and reachability analysis.
+A lookup table quietly caps your retry count at the table length, so raising
+\`maxAttempts\` without extending the table gives you an \`undefined\` delay. The
+exponent and the \`maxDelayMs\` clamp scale together, so the two knobs stay independent.
 
-Use whichever your codebase already uses. Consistency is the only real argument here.`,
-      parserStart + 21 * MINUTE,
+Where a table wins is when the delays are not a clean curve — if operations wants
+"200ms, 1s, then 30s" because the dependency has a known recovery profile, encoding
+that as a formula is worse than just writing the three numbers down.`,
+      apiStart + 21 * MINUTE,
     ),
   ],
 };
@@ -307,64 +280,86 @@ Use whichever your codebase already uses. Consistency is the only real argument 
 
 const NOTES: Array<[string, string]> = [
   [
-    'Paragraph {n} still opens on a subordinate clause. Can it lead with the subject?',
-    `Yes — and it should. The clause is doing scene-setting work that the previous paragraph already did.
+    'Store {n}: modular reset is showing 40% compliance. Real or a data problem?',
+    `Data problem first, on this evidence.
 
-> ~~Having waited through the long afternoon, she finally spoke.~~
-> **She finally spoke.**
+40% is low enough to be a measurement artefact rather than execution. Check the audit
+timestamp against the reset completion date — if the audit ran before the reset
+window closed, you are scoring a store for work it had not been asked to finish yet.
 
-The waiting is established. Repeating it costs you the sentence's momentum for information the reader already holds.`,
+If the timestamps do line up, the usual cause at this scale is a fixture mismatch:
+the planogram assumes a four-foot section and the store has a three-foot run.`,
   ],
   [
-    'Is "{word}" overused in section {n}?',
-    `Six occurrences in about eleven hundred words. Two are load-bearing; the rest are reflex.
+    'Item {n} keeps reading out-of-stock but the shelf is full. Where do I look?',
+    `Phantom inventory, and it is nearly always one of three things:
 
-Keep the one in the opening image and the one in the final line — they bracket the section deliberately. Replace the middle four with something concrete: what the character actually hears, rather than the absence of sound.`,
+1. **A receiving error** — the case was scanned into the wrong item number, so
+   on-hand for the real item never moved.
+2. **A shrink event** absorbed silently, leaving the system count high and the shelf
+   count low. Here it's the reverse, so less likely.
+3. **A UPC collision** — two items sharing a scan code, one selling down the other's
+   on-hand.
+
+Start with the receiving log for the last two deliveries. That is where the answer
+usually is.`,
   ],
   [
-    'The dialogue in scene {n} reads stilted to me. Diagnosis?',
-    `Two causes, both fixable.
+    'Is the {n}-week trailing average the right window for this category?',
+    `For this one, probably too long.
 
-1. **Every line is a complete sentence.** Real speech fragments, interrupts, and trails off. Break three or four of these mid-thought.
-2. **The attributions are over-specified.** \`she demurred\`, \`he expostulated\`, \`they countered\` — swap them all for \`said\` and delete half. The reader can hear who is speaking.`,
+A trailing window has to be short enough to track real demand shifts and long enough
+to smooth noise. In a category with promotional swings this size, a window that long
+carries promo weeks into the baseline for over a month after the event ends.
+
+Try halving it and adding a promo flag so the lift is modelled rather than averaged in.`,
   ],
   [
-    'Does the tense shift in paragraph {n} work, or is it a mistake?',
-    `It works, but only because it's brief. Past perfect is a doorway, not a room: one sentence to enter the earlier moment, then simple past for the duration of it.
+    'Should section {n} keep its endcap through the transition?',
+    `Keep it, but shorten the tail.
 
-Right now you stay in past perfect for four sentences, which starts to feel like a grammatical hum under the prose. Convert sentences two through four to simple past and leave the first as the hinge.`,
+The endcap is still earning its space on units, and giving it up early means the
+incoming season's item lands on a shelf position with no traffic behind it. Two weeks
+of overlap is the usual compromise: incoming item on the endcap, outgoing item back to
+its in-line position rather than out of the store entirely.`,
   ],
   [
-    'Cut or keep the flashback at {n}?',
-    `Keep it, move it earlier.
+    'Cut or keep the secondary display for item {n}?',
+    `Cut it.
 
-The information it delivers is needed two pages before it currently arrives, and the reader spends that gap mildly confused about a relationship the flashback would have clarified. Moving it costs nothing structurally — the scene it interrupts has a natural seam right after the door closes.`,
+Two placements for one item split the demand signal without adding much lift — the
+data shows the secondary taking sales from the in-line position rather than creating
+new ones. The space is worth more given to an item that has no placement at all.`,
   ],
   [
-    'Rhythm check on the closing lines of chapter section {n}?',
-    `The last three sentences are all the same length, which flattens the landing.
+    'Availability dipped in week {n} but sales held. How is that possible?',
+    `Substitution, most likely — and it means the dip cost less than the report implies.
 
-Try shortening the final one hard. A four-word sentence after two long ones reads as a full stop in a way that punctuation alone can't achieve. You did this well at the end of section two — same move works here.`,
+When an item goes out and the shopper takes the next size or the private-label
+equivalent from the same shelf, category sales hold while item-level availability
+falls. That is a real out-of-stock, but its true cost is the margin difference between
+the two items, not the full basket.
+
+Worth checking whether the substitute is the higher or lower margin item before you
+prioritise the fix.`,
   ],
 ];
 
-const WORDS = ['quiet', 'suddenly', 'somehow', 'almost', 'seemed', 'gently'];
+const complianceStart = now - 6 * DAY;
 
-const copyeditStart = now - 6 * DAY;
-
-const buildCopyedit = (): Message[] => {
+const buildCompliance = (): Message[] => {
   const messages: Message[] = [];
-  let t = copyeditStart;
+  let t = complianceStart;
 
   messages.push(
     turn(
       'user',
-      `Copyediting pass on chapter 7 of the novel. I'll go section by section — call out anything that's a pattern rather than a one-off. Draft attached.`,
+      `Working through the Q2 planogram compliance review for the Region 14 stores. I'll go store by store — flag anything that looks like a pattern across stores rather than a one-off. Audit export attached.`,
       t,
       {
         attachments: [
-          { id: uid('att'), name: 'ch07-draft-v4.md', size: 74_218, kind: 'text' },
-          { id: uid('att'), name: 'style-sheet.md', size: 4_902, kind: 'text' },
+          { id: uid('att'), name: 'region14-compliance-q2.csv', size: 1_184_218, kind: 'data' },
+          { id: uid('att'), name: 'modular-reset-calendar.xlsx', size: 92_902, kind: 'data' },
         ],
       },
     ),
@@ -374,13 +369,17 @@ const buildCopyedit = (): Message[] => {
   messages.push(
     turn(
       'assistant',
-      `Read straight through once before marking anything. Three patterns stand out across the whole chapter:
+      `Read straight through the export first. Three patterns stand out across the region before we get to individual stores:
 
-1. **Subordinate-clause openings.** Roughly one paragraph in three starts with a participial or temporal clause. Individually fine; at that density it becomes a tic that softens every entry point.
-2. **Adverbial hedging in dialogue attribution.** *quietly, almost, somehow* — these appear where the line itself is already doing the work.
-3. **Uniform sentence length at section ends.** Every section closes on three medium sentences. The endings blur together as a result.
+1. **Audits running early.** Roughly a third of the low scores have an audit timestamp
+   inside the reset window. Those stores are being marked down for work that was not
+   due yet — fix the schedule before you act on the scores.
+2. **Fixture mismatches clustering by store age.** The pre-2012 remodels show the same
+   three sections failing, which points at fixture depth rather than execution.
+3. **Compliance falling on Mondays.** Weekend truck volume is arriving faster than it
+   is being worked, so Monday audits catch shelves mid-recovery.
 
-Send sections as you get to them and I'll work at the line level.`,
+Send the stores as you get to them and I'll work case by case.`,
       t,
     ),
   );
@@ -389,11 +388,11 @@ Send sections as you get to them and I'll work at the line level.`,
   // ~62 exchanges → ~126 messages total, comfortably past the virtualization threshold.
   for (let n = 1; n <= 62; n += 1) {
     const [q, a] = NOTES[n % NOTES.length];
-    const prompt = q.replace('{n}', String(n)).replace('{word}', WORDS[n % WORDS.length]);
+    const prompt = q.replace(/\{n\}/g, String(4500 + n));
     messages.push(turn('user', prompt, t));
     t += 90_000 + (n % 5) * 45_000;
     messages.push(
-      turn('assistant', a.replace(/\{n\}/g, String(n)), t, n % 9 === 0 ? { revision: 2 } : {}),
+      turn('assistant', a.replace(/\{n\}/g, String(4500 + n)), t, n % 9 === 0 ? { revision: 2 } : {}),
     );
     t += 3 * MINUTE + (n % 7) * MINUTE;
   }
@@ -401,14 +400,14 @@ Send sections as you get to them and I'll work at the line level.`,
   return messages;
 };
 
-const copyeditMessages = buildCopyedit();
+const complianceMessages = buildCompliance();
 
-const copyedit: Conversation = {
+const compliance: Conversation = {
   id: uid('conv'),
-  title: 'Chapter 7 — line edit',
-  createdAt: copyeditStart,
-  updatedAt: copyeditMessages[copyeditMessages.length - 1].createdAt,
-  messages: copyeditMessages,
+  title: 'Region 14 — Q2 planogram compliance',
+  createdAt: complianceStart,
+  updatedAt: complianceMessages[complianceMessages.length - 1].createdAt,
+  messages: complianceMessages,
 };
 
-export const seedConversations: Conversation[] = [retrieval, parser, copyedit];
+export const seedConversations: Conversation[] = [markdownPlan, apiWork, compliance];

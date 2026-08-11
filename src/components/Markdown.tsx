@@ -23,7 +23,7 @@ function renderInline(nodes: Inline[], keyPrefix = ''): ReactNode[] {
         return (
           <code
             key={key}
-            className="rounded-ctl border border-edge bg-raised px-[0.35em] py-[0.08em] font-mono text-[0.84em] text-ink"
+            className="rounded-ctl border border-edge bg-surface px-[0.35em] py-[0.08em] font-mono text-[0.84em] text-ink"
           >
             {node.value}
           </code>
@@ -54,7 +54,7 @@ function renderInline(nodes: Inline[], keyPrefix = ''): ReactNode[] {
             title={node.title}
             target="_blank"
             rel="noreferrer noopener"
-            className="text-ink underline decoration-accent decoration-1 underline-offset-[3px] transition-colors hover:bg-wash hover:text-accent"
+            className="font-medium text-accent-text underline decoration-accent decoration-2 underline-offset-[3px] transition-colors hover:bg-wash"
           >
             {renderInline(node.children, `${key}.`)}
           </a>
@@ -68,7 +68,7 @@ function renderInline(nodes: Inline[], keyPrefix = ''): ReactNode[] {
 const Inlines = ({ text }: { text: string }) => <>{renderInline(parseInline(text))}</>;
 
 /**
- * Inline-only rendering, used for what the reader wrote themselves. Their own
+ * Inline-only rendering, used for what the person wrote themselves. Their own
  * words keep their line breaks and stay in one voice — code spans and emphasis
  * are honoured, headings and tables are not.
  */
@@ -83,7 +83,7 @@ function renderBlock(block: Block, key: string, trailingCaret: boolean): ReactNo
       return (
         <Tag
           key={key}
-          className={`mt-7 mb-2 font-display font-semibold text-ink first:mt-0 ${
+          className={`mt-7 mb-2 font-bold text-ink first:mt-0 ${
             HEADING_SIZE[block.level] ?? HEADING_SIZE[3]
           }`}
         >
@@ -111,7 +111,7 @@ function renderBlock(block: Block, key: string, trailingCaret: boolean): ReactNo
       return (
         <blockquote
           key={key}
-          className="my-5 border-l-2 border-accent bg-wash py-2 pl-4 pr-3 text-muted italic"
+          className="my-5 rounded-card border-l-4 border-highlight bg-wash-highlight px-4 py-3 text-ink"
         >
           {block.blocks.map((b, i) => renderBlock(b, `${key}.${i}`, false))}
         </blockquote>
@@ -119,7 +119,7 @@ function renderBlock(block: Block, key: string, trailingCaret: boolean): ReactNo
 
     case 'list': {
       const items = block.items.map((item, i) => (
-        <li key={`${key}.${i}`} className="pl-2 marker:font-mono marker:text-accent">
+        <li key={`${key}.${i}`} className="pl-1.5 marker:font-bold marker:text-accent">
           {item.blocks.map((b, j) => renderBlock(b, `${key}.${i}.${j}`, false))}
         </li>
       ));
@@ -134,7 +134,7 @@ function renderBlock(block: Block, key: string, trailingCaret: boolean): ReactNo
       ) : (
         <ul
           key={key}
-          className="my-3 ml-5 list-outside list-[square] space-y-1.5 marker:text-[0.8em]"
+          className="my-3 ml-5 list-outside list-disc space-y-1.5 marker:text-[0.9em]"
         >
           {items}
         </ul>
@@ -143,15 +143,15 @@ function renderBlock(block: Block, key: string, trailingCaret: boolean): ReactNo
 
     case 'table':
       return (
-        <div key={key} className="my-6 overflow-x-auto border border-edge">
+        <div key={key} className="my-6 overflow-x-auto rounded-card border border-edge shadow-raised">
           <table className="w-full border-collapse text-[0.92em]">
             <thead>
-              <tr className="border-b-2 border-edge-strong bg-raised">
+              <tr className="border-b border-edge bg-surface">
                 {block.header.map((cell, i) => (
                   <th
                     key={i}
                     scope="col"
-                    className="px-3 py-2 font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted"
+                    className="px-3 py-2.5 label text-muted"
                     style={{ textAlign: block.align[i] ?? 'left' }}
                   >
                     <Inlines text={cell} />
@@ -161,12 +161,12 @@ function renderBlock(block: Block, key: string, trailingCaret: boolean): ReactNo
             </thead>
             <tbody>
               {block.rows.map((row, i) => (
-                <tr key={i} className="border-b border-edge last:border-b-0">
+                <tr key={i} className="border-b border-edge last:border-b-0 hover:bg-hover">
                   {row.map((cell, j) => (
                     <td
                       key={j}
                       className={`px-3 py-2 align-top ${
-                        block.align[j] === 'right' ? 'font-mono text-[0.92em] tabular-nums' : ''
+                        block.align[j] === 'right' ? 'tabular-nums' : ''
                       }`}
                       style={{ textAlign: block.align[j] ?? 'left' }}
                     >
@@ -206,7 +206,7 @@ export const Markdown = memo(function Markdown({ source, streaming }: Props) {
   const caretStandalone = streaming && !caretInline && lastBlock.type !== 'code';
 
   return (
-    <div className="text-[1.0625rem] leading-[1.62] text-ink">
+    <div className="text-[1rem] leading-[1.6] text-ink">
       {blocks.map((block, i) => renderBlock(block, `b${i}`, caretInline && i === last))}
       {caretStandalone && <span className="caret" />}
     </div>

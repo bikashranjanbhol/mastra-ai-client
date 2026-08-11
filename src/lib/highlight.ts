@@ -2,9 +2,9 @@
  * A compact tokenizer-based highlighter.
  *
  * Six token classes, five colour roles — deliberately fewer than a full
- * TextMate grammar. The design brief calls for a printed page, and printed code
- * listings distinguish comments, literals and keywords; they do not paint every
- * identifier a different colour.
+ * TextMate grammar. Comments, literals and keywords are what a reader actually
+ * scans for; painting every identifier a different colour adds noise, and the
+ * three code colours here are checked for contrast in both themes.
  */
 
 export type TokenType =
@@ -262,10 +262,10 @@ export function tokenize(code: string, lang: string): Token[] {
 export const TOKEN_CLASS: Record<TokenType, string> = {
   plain: 'text-ink',
   comment: 'text-muted italic',
-  string: 'text-success',
-  number: 'text-accent',
-  keyword: 'text-accent font-semibold',
-  type: 'text-ink font-semibold',
+  string: 'text-code-string',
+  number: 'text-code-number',
+  keyword: 'text-code-keyword font-bold',
+  type: 'text-ink font-bold',
   func: 'text-ink underline decoration-edge-strong decoration-1 underline-offset-2',
   punct: 'text-muted',
 };

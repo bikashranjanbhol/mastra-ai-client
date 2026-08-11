@@ -1,7 +1,5 @@
+<!-- PLACEHOLDER favicon. Replace with the official mark from the brand kit. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <rect width="32" height="32" fill="#f3efe6" />
-  <rect x="5" y="5" width="10" height="10" fill="#b4451f" />
-  <path d="M5 11h5v4" fill="#f3efe6" />
-  <rect x="17.75" y="17.75" width="9.5" height="9.5" fill="none" stroke="#1c1917" stroke-width="2.5" />
-  <path d="M17.75 27.25 27.25 17.75" stroke="#1c1917" stroke-width="2.5" />
+  <rect width="32" height="32" rx="9" fill="#0071DC" />
+  <circle cx="16" cy="16" r="6" fill="#FFC220" />
 </svg>

@@ -12,13 +12,14 @@ interface Props {
 }
 
 const THEME_ICON = { system: Monitor, light: Sun, dark: Moon } as const;
+const THEME_TEXT = { system: 'Auto', light: 'Light', dark: 'Dark' } as const;
 const THEME_LABEL = {
   system: 'following system',
   light: 'light',
   dark: 'dark',
 } as const;
 
-/** Running head: the strip that names the page you are on. */
+/** The strip that names the chat you are in. */
 export function Masthead({
   conversation,
   onToggleSidebar,
@@ -36,29 +37,31 @@ export function Masthead({
         onClick={onToggleSidebar}
         aria-expanded={sidebarOpen}
         aria-controls="index-panel"
-        title="Toggle index (⌘B)"
-        className="rounded-ctl border border-edge p-1.5 text-muted transition-colors hover:bg-hover hover:text-ink"
+        title="Toggle chat list (⌘B)"
+        className="rounded-pill border border-edge p-2 text-muted transition-colors hover:bg-hover hover:text-ink"
       >
         <PanelLeft aria-hidden="true" size={14} strokeWidth={1.75} />
-        <span className="sr-only-text">{sidebarOpen ? 'Hide index' : 'Show index'}</span>
+        <span className="sr-only-text">{sidebarOpen ? 'Hide chat list' : 'Show chat list'}</span>
       </button>
 
       <div className="min-w-0 flex-1">
-        <h2 className="truncate font-display text-[1.05rem] leading-tight text-ink">
+        <h2 className="truncate text-[1.05rem] font-bold leading-tight text-ink">
           {conversation.title}
         </h2>
-        <p className="font-mono text-[11px] tracking-[0.08em] text-muted">
-          {plural(conversation.messages.length, 'turn')} · edited {relativeDay(conversation.updatedAt)}
+        <p className="meta text-muted">
+          {plural(conversation.messages.length, 'message')} · updated {relativeDay(conversation.updatedAt)}
         </p>
       </div>
 
       <button
         type="button"
         onClick={onCycleTheme}
-        className="flex items-center gap-2 rounded-ctl border border-edge px-2 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-muted transition-colors hover:bg-hover hover:text-ink"
+        className="btn btn-quiet"
       >
         <ThemeIcon aria-hidden="true" size={13} strokeWidth={1.75} />
-        <span className="hidden sm:inline">{theme === 'system' ? `auto · ${resolved}` : theme}</span>
+        <span className="hidden sm:inline">
+          {theme === 'system' ? `Auto · ${THEME_TEXT[resolved]}` : THEME_TEXT[theme]}
+        </span>
         <span className="sr-only-text">
           Appearance: {THEME_LABEL[theme]}. Activate to change.
         </span>

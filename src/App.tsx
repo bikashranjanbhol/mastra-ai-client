@@ -114,7 +114,7 @@ export default function App() {
     <div className="flex h-full w-full overflow-hidden bg-surface">
       <a
         href="#composer"
-        className="sr-only-text focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-ctl focus:border focus:border-accent focus:bg-raised focus:px-3 focus:py-2 focus:font-mono focus:text-[11px] focus:uppercase focus:tracking-[0.14em] focus:text-ink"
+        className="sr-only-text focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-pill focus:bg-accent focus:px-4 focus:py-2 focus:text-[13px] focus:font-bold focus:text-on-accent"
       >
         Skip to composer
       </a>
@@ -124,39 +124,39 @@ export default function App() {
         (railOpen ? (
           <aside
             id="index-panel"
-            aria-label="Conversation index"
+            aria-label="Chat list"
             className="w-[17rem] shrink-0 border-r border-edge"
           >
             {sidebar}
           </aside>
         ) : (
           <aside
-            aria-label="Conversation index, collapsed"
+            aria-label="Chat list, collapsed"
             className="flex w-12 shrink-0 flex-col items-center gap-4 border-r border-edge py-3"
           >
             <button
               type="button"
               onClick={() => setRailOpen(true)}
-              title="Show index (⌘B)"
-              className="rounded-ctl border border-edge p-1.5 text-muted transition-colors hover:bg-hover hover:text-ink"
+              title="Show chat list (⌘B)"
+              className="rounded-pill border border-edge p-2 text-muted transition-colors hover:bg-hover hover:text-ink"
             >
               <PanelLeft aria-hidden="true" size={14} strokeWidth={1.75} />
-              <span className="sr-only-text">Show index</span>
+              <span className="sr-only-text">Show chat list</span>
             </button>
             <button
               type="button"
               onClick={startNew}
-              title="New entry (⌘⇧O)"
-              className="rounded-ctl border border-edge p-1.5 text-muted transition-colors hover:border-accent hover:bg-hover hover:text-ink"
+              title="New chat (⌘⇧O)"
+              className="rounded-pill bg-accent p-2 text-on-accent transition-colors hover:bg-accent-text"
             >
               <Plus aria-hidden="true" size={14} strokeWidth={2} />
-              <span className="sr-only-text">New entry</span>
+              <span className="sr-only-text">New chat</span>
             </button>
             <span
-              className="mt-2 font-mono text-[11px] uppercase tracking-[0.28em] text-muted"
+              className="mt-2 label text-muted"
               style={{ writingMode: 'vertical-rl' }}
             >
-              Index · {chat.conversations.length}
+              Chats · {chat.conversations.length}
             </span>
           </aside>
         ))}
@@ -201,7 +201,7 @@ export default function App() {
         <div className="fixed inset-0 z-40 flex">
           <button
             type="button"
-            aria-label="Close index"
+            aria-label="Close chat list"
             onClick={() => setDrawerOpen(false)}
             className="absolute inset-0 bg-scrim"
           />
@@ -210,7 +210,7 @@ export default function App() {
             id="index-panel"
             role="dialog"
             aria-modal="true"
-            aria-label="Conversation index"
+            aria-label="Chat list"
             className="relative z-10 h-full w-[84vw] max-w-[20rem] border-r border-edge-strong"
             onKeyDown={(e) => {
               if (e.key !== 'Tab') return;
