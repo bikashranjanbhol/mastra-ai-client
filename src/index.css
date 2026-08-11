@@ -1,0 +1,152 @@
+@import 'tailwindcss';
+
+/* Theme is always resolved to an explicit value on <html data-theme>, so the
+   toggle and the system preference share one code path. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  --paper-surface: #f3efe6;
+  --paper-raised: #fbf8f1;
+  --paper-border: #dad2c2;
+  --paper-border-strong: #bfb49e;
+  --ink-primary: #1c1917;
+  --ink-muted: #6b6355;
+  --ink-accent: #b4451f;
+  --ink-success: #2f6b4f;
+  --ink-danger: #8e1f2b;
+  --wash-accent: #b4451f14;
+  --wash-hover: #1c19170a;
+  --scrim: #1c19178c;
+}
+
+[data-theme='dark'] {
+  --paper-surface: #141210;
+  --paper-raised: #1d1a16;
+  --paper-border: #332e26;
+  --paper-border-strong: #4d4639;
+  --ink-primary: #ede6d8;
+  --ink-muted: #9c9384;
+  --ink-accent: #e2734a;
+  --ink-success: #74ae8e;
+  --ink-danger: #e4788a;
+  --wash-accent: #e2734a1f;
+  --wash-hover: #ede6d80f;
+  --scrim: #0a0806a6;
+}
+
+@theme inline {
+  --color-surface: var(--paper-surface);
+  --color-raised: var(--paper-raised);
+  --color-edge: var(--paper-border);
+  --color-edge-strong: var(--paper-border-strong);
+  --color-ink: var(--ink-primary);
+  --color-muted: var(--ink-muted);
+  --color-accent: var(--ink-accent);
+  --color-success: var(--ink-success);
+  --color-danger: var(--ink-danger);
+  --color-wash: var(--wash-accent);
+  --color-hover: var(--wash-hover);
+  --color-scrim: var(--scrim);
+
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia,
+    'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Roboto Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+
+  --radius-ctl: 2px;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--paper-surface);
+    color: var(--ink-primary);
+    font-family: var(--font-display);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One focus treatment, everywhere. Square, rubric, always visible. */
+  :focus-visible {
+    outline: 2px solid var(--ink-accent);
+    outline-offset: 2px;
+    border-radius: 0;
+  }
+
+  ::selection {
+    background: var(--wash-accent);
+  }
+
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--paper-border);
+    border: 4px solid var(--paper-surface);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--paper-border-strong);
+  }
+}
+
+@layer components {
+  /* Screen-reader-only text (announcements, labels on icon controls). */
+  .sr-only-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* The rubric caret that trails streaming text. */
+  .caret {
+    display: inline-block;
+    width: 0.5ch;
+    height: 1.05em;
+    margin-left: 2px;
+    translate: 0 0.16em;
+    background: var(--ink-accent);
+    animation: caret-pulse 1.1s steps(2, jump-none) infinite;
+  }
+
+  @keyframes caret-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.15;
+    }
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .caret {
+    animation: none;
+    opacity: 1;
+  }
+}

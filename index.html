@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta
+      name="description"
+      content="Marginalia — a chat client that sets the conversation as a critical edition: a text column with an editorial margin."
+    />
+    <title>Marginalia</title>
+    <script>
+      // Resolve theme before first paint so there is no flash of the wrong paper.
+      (function () {
+        try {
+          var mq = window.matchMedia('(prefers-color-scheme: dark)');
+          document.documentElement.dataset.theme = mq.matches ? 'dark' : 'light';
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
